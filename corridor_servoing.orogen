@@ -1,0 +1,62 @@
+name "corridor_servoing"
+version "0.1"
+
+using_library "vfh_star"
+using_library "envire"
+import_types_from "base"
+import_types_from "vfh_star/DebugTypes.h"
+import_types_from "corridor_servoing_types.hpp"
+
+task_context "Task" do
+    
+    input_port("scan_samples", "base/samples/LaserScan").
+	needs_reliable_connection.
+        doc "LaserScann"
+
+    input_port('orientation_samples', '/wrappers/samples/RigidBodyState').
+	needs_reliable_connection.
+	doc 'timestamped orientation readings'
+
+    input_port('odometry_samples', '/wrappers/samples/RigidBodyState').
+	needs_reliable_connection.
+	doc 'timestamped oodometry samples'
+
+    output_port("segmented", "bool").
+	doc "debug port for log replay"
+
+    output_port("trajectory", "wrappers/Trajectory")
+
+    output_port("gridDump", "vfh_star/GridDump")
+
+    output_port("vfhDebug", "wrappers/VFHStarDebugData")
+
+    ##########################
+    # aggregator parameters
+    ##########################
+    property('scan_period', 'double', 0.025).
+	doc 'Time in s between laser scan readings'
+
+    property('odometry_period', 'double', 0.01).
+	doc 'Time in s between odometry readings'
+
+    property('max_delay', 'double', 0.1).
+	doc 'Time in s the map generator will wait for expected readings.'
+
+    needs_configuration
+    port_driven 'scan_samples'
+end
+
+
+deployment "corridorTest" do
+    cs	= task('corridor_servoing', "corridor_servoing::Task").
+	triggered
+
+    add_default_logger
+
+    if !corba_enabled?
+        browse cs
+    end
+
+end
+
+
