@@ -99,6 +99,9 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 {
     if(!gotOdometry)
 	return;
+
+    if(!_heading.read(globalHeading))
+	return;
     
     bool gotNewMap = mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);
 
