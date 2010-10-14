@@ -3,6 +3,7 @@
 #include <rtt/NonPeriodicActivity.hpp>
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
+#include <asguard/Configuration.hpp>
 
 using namespace corridor_servoing;
 using namespace vfh_star;
@@ -78,22 +79,29 @@ RTT::NonPeriodicActivity* Task::getNonPeriodicActivity()
 Task::Task(std::string const& name)
     : TaskBase(name)
 {
+    aggr = new aggregator::StreamAligner();    
+    asguard::Configuration asguardConf;
+    laser2Body = asguardConf.laser2Body;
+    body2Odo.setIdentity();
+    
+    globalHeading = 0;
+    lastDrivenDirection = 0;
 }
 
 
 void Task::odometry_callback(base::Time ts, const wrappers::samples::RigidBodyState& odometry_reading)
 {
+    gotOdometry = true;
     body2Odo = odometry_reading;
 }
 
 void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_reading)
 {
-    //TODO move me to class variables
-    double globalHeading;
-    double lastDrivenDirection = 0;
+    if(!gotOdometry)
+	return;
     
     bool gotNewMap = mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);
-    
+
     if(gotNewMap) {
 	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
 
@@ -145,7 +153,7 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	mapGenerator.getGridDump(gd);
 	_gridDump.write(gd);
 
-	_vfhDebug.write(vfh.getVFHStarDebugData(trajectory));
+ 	_vfhDebug.write(vfh.getVFHStarDebugData(trajectory));
     }
 }
 
@@ -156,7 +164,7 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 // documentation about them.
 
 bool Task::configureHook()
-{
+{    
     // setup the aggregator with the timeout value provided by the module
     aggr->setTimeout( base::Time::fromSeconds( _max_delay.value() ) );
 
@@ -172,6 +180,8 @@ bool Task::configureHook()
 	   buffer_size_factor* ceil( _max_delay.value()/_scan_period.value() ),
 	   base::Time::fromSeconds( _scan_period.value() ) );
 
+    gotOdometry = false;
+    
     return true;
 }
 

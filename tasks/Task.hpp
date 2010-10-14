@@ -42,6 +42,15 @@ namespace corridor_servoing {
 	/** Transformation from laser to robot body frame 
 	 *  Note, later on this will get dynamic */
 	Eigen::Transform3d laser2Body;
+	
+	/** status variable, that indicates, if an odometry reading was received */
+	bool gotOdometry;
+	
+	/** heading, where the robot should drive */
+	double globalHeading;
+	
+	/** last direction, where the vfh deceided to go */
+	double lastDrivenDirection;
 
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
