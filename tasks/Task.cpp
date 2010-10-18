@@ -1,4 +1,4 @@
-#include <Eigen/StdVector>
+#include <Eigen/NewStdVector>
 #include "Task.hpp"
 #include <rtt/NonPeriodicActivity.hpp>
 #include <vfh_star/VFHStar.h>
@@ -138,10 +138,10 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	    lastDrivenDirection = trajectory.begin()->heading;
 	}
 
-	wrappers::Trajectory tr_out;
+	std::vector<wrappers::Waypoint> tr_out;
 	for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)
 	{
-	    tr_out.tr.push_back(*it);
+	    tr_out.push_back(*it);
 	}
 	_trajectory.write(tr_out);
 

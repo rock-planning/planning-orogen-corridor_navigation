@@ -28,7 +28,7 @@ task_context "Task" do
     output_port("segmented", "bool").
 	doc "debug port for log replay"
 
-    output_port("trajectory", "wrappers/Trajectory")
+    output_port("trajectory", "/std/vector</wrappers/Waypoint>")
 
     output_port("gridDump", "vfh_star/GridDump")
 

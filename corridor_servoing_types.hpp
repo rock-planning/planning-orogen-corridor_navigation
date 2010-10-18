@@ -13,10 +13,7 @@
 // #include <../../include/SlopeBinSegmenter.h>
 
 namespace wrappers {
-    struct Trajectory{
-	std::vector< wrappers::Waypoint > tr;
-    };
-    
+
     struct VFHDebugData {
 	wrappers::Pose poseb;
 	std::vector< int > histogram;
@@ -54,7 +51,7 @@ namespace wrappers {
 
     struct VFHStarDebugData {
 	std::vector<VFHDebugData> steps;
-	Trajectory generatedTrajectory;
+	std::vector<wrappers::Waypoint> generatedTrajectory;
     };   
 }
 
