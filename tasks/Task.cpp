@@ -18,8 +18,7 @@ class VFHServoing: public VFHStar {
 	VFH vfh;
 	wrappers::VFHStarDebugData *vfhDebug;
 	wrappers::VFHStarDebugData debugData;
-
-	virtual std::vector< std::pair< double, double > > getNextPossibleDirections(const base::Pose& curPose) const;
+	virtual std::vector< std::pair< double, double > > getNextPossibleDirections(const base::Pose& curPose, const double& obstacleSafetyDist, const double& robotWidth) const;
 	virtual base::Pose getProjectedPose(const base::Pose& curPose, const double& heading, const double& distance) const;
 };
 
@@ -49,11 +48,11 @@ wrappers::VFHStarDebugData VFHServoing::getVFHStarDebugData(const std::vector< b
 }
 
 
-std::vector< std::pair< double, double > > VFHServoing::getNextPossibleDirections(const base::Pose& curPose) const
+std::vector< std::pair< double, double > > VFHServoing::getNextPossibleDirections(const base::Pose& curPose, const double& obstacleSafetyDist, const double& robotWidth) const
 {
     VFHDebugData dd;
     std::vector< std::pair< double, double > > ret;
-    ret = vfh.getNextPossibleDirections(curPose, &dd);
+    ret = vfh.getNextPossibleDirections(curPose, obstacleSafetyDist, robotWidth, &dd);
     vfhDebug->steps.push_back(dd);
     return ret;
 }
