@@ -42,6 +42,12 @@ task_context "Task" do
     property('max_delay', 'double', 0.1).
 	doc 'Time in s the map generator will wait for expected readings.'
 
+    property('robot_width', 'double', 0.55).
+	doc('The width of the robot')
+
+    property('obstacle_safety_distance', 'double', 0.05).
+	doc('The minimal distance, in which the robot will try to navigate around obstacles')
+
     needs_configuration
     port_driven 'scan_samples'
 end

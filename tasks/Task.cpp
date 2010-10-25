@@ -127,6 +127,9 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 
 	VFHServoing vfh(&trGrid);
 
+	vfh.setObstacleSafetyDistance(_obstacle_safety_distance.get());
+	vfh.setRobotWidth(_robot_width.get());
+	
 	base::Time start = base::Time::now();
 
 	std::vector<base::Waypoint> trajectory = vfh.getTrajectory(base::Pose(body2Odo), globalHeading, lastDrivenDirection);
