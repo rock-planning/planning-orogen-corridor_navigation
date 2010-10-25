@@ -14,10 +14,6 @@ task_context "Task" do
 	needs_reliable_connection.
         doc "LaserScann"
 
-    input_port('orientation_samples', '/wrappers/samples/RigidBodyState').
-	needs_reliable_connection.
-	doc 'timestamped orientation readings'
-
     input_port('odometry_samples', '/wrappers/samples/RigidBodyState').
 	needs_reliable_connection.
 	doc 'timestamped oodometry samples'
