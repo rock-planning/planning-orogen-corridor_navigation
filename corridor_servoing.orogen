@@ -5,6 +5,7 @@ using_library "vfh_star"
 using_library "envire"
 using_library "asguard"
 import_types_from "base"
+import_types_from "vfh_star/VFH.h"
 import_types_from "vfh_star/DebugTypes.h"
 import_types_from "corridor_servoing_types.hpp"
 
@@ -14,7 +15,7 @@ task_context "Task" do
 	needs_reliable_connection.
         doc "LaserScann"
 
-    input_port('odometry_samples', '/wrappers/samples/RigidBodyState').
+    input_port('odometry_samples', '/base/samples/RigidBodyState').
 	needs_reliable_connection.
 	doc 'timestamped oodometry samples'
 
@@ -24,11 +25,11 @@ task_context "Task" do
     output_port("segmented", "bool").
 	doc "debug port for log replay"
 
-    output_port("trajectory", "/std/vector</wrappers/Waypoint>")
+    output_port("trajectory", "/std/vector</base/Waypoint>")
 
     output_port("gridDump", "vfh_star/GridDump")
 
-    output_port("vfhDebug", "wrappers/VFHStarDebugData")
+    output_port("vfhDebug", "vfh_star/VFHStarDebugData")
 
     ##########################
     # aggregator parameters

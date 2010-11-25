@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<package>
+  <depend package="planning/vfh_star"/>
+  <depend package="slam/envire"/>
+  <depend package="base/orogen/types"/>
+  <depend package="asguard/asguard"/>
+
+  <depend package="tools/logger"/>
+  <depend package="orogen"/>
+</package>
+

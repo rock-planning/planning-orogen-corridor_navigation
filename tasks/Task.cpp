@@ -1,6 +1,5 @@
 #include <Eigen/NewStdVector>
 #include "Task.hpp"
-#include <rtt/NonPeriodicActivity.hpp>
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
 #include <asguard/Configuration.hpp>
@@ -13,24 +12,24 @@ class VFHServoing: public VFHStar {
     public:
 	VFHServoing(const envire::Grid<Traversability> *tr): vfh(tr), vfhDebug(&debugData) {};
 	virtual ~VFHServoing() {};
-	wrappers::VFHStarDebugData getVFHStarDebugData(const std::vector<base::Waypoint> &trajectory);
+	vfh_star::VFHStarDebugData getVFHStarDebugData(const std::vector<base::Waypoint> &trajectory);
     private:
 	VFH vfh;
-	wrappers::VFHStarDebugData *vfhDebug;
-	wrappers::VFHStarDebugData debugData;
+	vfh_star::VFHStarDebugData *vfhDebug;
+	vfh_star::VFHStarDebugData debugData;
 	virtual std::vector< std::pair< double, double > > getNextPossibleDirections(const base::Pose& curPose, const double& obstacleSafetyDist, const double& robotWidth) const;
 	virtual base::Pose getProjectedPose(const base::Pose& curPose, const double& heading, const double& distance) const;
 };
 
-wrappers::VFHStarDebugData VFHServoing::getVFHStarDebugData(const std::vector< base::Waypoint >& trajectory)
+vfh_star::VFHStarDebugData VFHServoing::getVFHStarDebugData(const std::vector< base::Waypoint >& trajectory)
 {
-    wrappers::VFHStarDebugData dd_out;
+    vfh_star::VFHStarDebugData dd_out;
     for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)
     {
 	bool found = false;
-	for(std::vector<wrappers::VFHDebugData>::const_iterator it2 = debugData.steps.begin(); it2 != debugData.steps.end(); it2++) 
+	for(std::vector<vfh_star::VFHDebugData>::const_iterator it2 = debugData.steps.begin(); it2 != debugData.steps.end(); it2++) 
 	{
-	    if(it->position == Eigen::Vector3d(it2->poseb.position))
+	    if(it->position == Eigen::Vector3d(it2->pose.position))
 	    {
 		dd_out.steps.push_back(*it2);
 		found = true;
@@ -71,10 +70,6 @@ base::Pose VFHServoing::getProjectedPose(const base::Pose& curPose, const double
 }
 
 
-RTT::NonPeriodicActivity* Task::getNonPeriodicActivity()
-{ return dynamic_cast< RTT::NonPeriodicActivity* >(getActivity().get()); }
-
-
 Task::Task(std::string const& name)
     : TaskBase(name)
 {
@@ -88,7 +83,7 @@ Task::Task(std::string const& name)
 }
 
 
-void Task::odometry_callback(base::Time ts, const wrappers::samples::RigidBodyState& odometry_reading)
+void Task::odometry_callback(base::Time ts, const base::samples::RigidBodyState& odometry_reading)
 {
     gotOdometry = true;
     body2Odo = odometry_reading;
@@ -99,9 +94,9 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
     if(!gotOdometry)
 	return;
 
-    if(!_heading.read(globalHeading))
+    if(_heading.read(globalHeading) == RTT::NoData)
 	return;
-    
+
     bool gotNewMap = mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);
 
     if(gotNewMap) {
@@ -140,7 +135,7 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	    lastDrivenDirection = trajectory.begin()->heading;
 	}
 
-	std::vector<wrappers::Waypoint> tr_out;
+	std::vector<base::Waypoint> tr_out;
 	for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)
 	{
 	    tr_out.push_back(*it);
@@ -154,11 +149,15 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	env.detachItem(&gridPos);
 	
 	//write out debug output
-	vfh_star::GridDump gd;
-	mapGenerator.getGridDump(gd);
-	_gridDump.write(gd);
+        if (_gridDump.connected())
+        {
+            vfh_star::GridDump gd;
+            mapGenerator.getGridDump(gd);
+            _gridDump.write(gd);
+        }
 
- 	_vfhDebug.write(vfh.getVFHStarDebugData(trajectory));
+        if (_vfhDebug.connected())
+            _vfhDebug.write(vfh.getVFHStarDebugData(trajectory));
     }
 }
 
@@ -175,7 +174,7 @@ bool Task::configureHook()
 
     const double buffer_size_factor = 2.0;
 
-    od_idx = aggr->registerStream<wrappers::samples::RigidBodyState>(
+    od_idx = aggr->registerStream<base::samples::RigidBodyState>(
 	   boost::bind( &Task::odometry_callback, this, _1, _2 ),
 	   buffer_size_factor* ceil( _max_delay.value()/_odometry_period.value() ),
 	   base::Time::fromSeconds( _odometry_period.value() ) );
@@ -198,16 +197,16 @@ bool Task::configureHook()
 
 
 
-void Task::updateHook(std::vector<RTT::PortInterface*> const& updated_ports)
+void Task::updateHook()
 {
     base::samples::LaserScan scan_reading;
-    while( _scan_samples.read(scan_reading) )
+    while( _scan_samples.read(scan_reading) == RTT::NewData )
     {
 	aggr->push( scan_idx, scan_reading.time, scan_reading );	
     }
     
-    wrappers::samples::RigidBodyState odometry_reading;
-    while( _odometry_samples.read(odometry_reading) )
+    base::samples::RigidBodyState odometry_reading;
+    while( _odometry_samples.read(odometry_reading) == RTT::NewData )
     {
 	aggr->push( od_idx, odometry_reading.time, odometry_reading );	
     }

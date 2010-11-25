@@ -6,12 +6,6 @@
 #include <vfh_star/TraversabilityMapGenerator.h>
 #include <Eigen/Core>
 
-namespace RTT
-{
-    class NonPeriodicActivity;
-}
-
-
 namespace corridor_servoing {
     class Task : public TaskBase
     {
@@ -34,7 +28,7 @@ namespace corridor_servoing {
 	void scan_callback( base::Time ts, const base::samples::LaserScan& scan_reading );
 
 	/** callback to receive odometry readings from aggregator */
-	void odometry_callback( base::Time ts, const wrappers::samples::RigidBodyState& odometry_reading );
+	void odometry_callback( base::Time ts, const base::samples::RigidBodyState& odometry_reading );
 	
 	/** Transformation from robot body to odmetry frame */
 	Eigen::Transform3d body2Odo;
@@ -55,8 +49,6 @@ namespace corridor_servoing {
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         Task(std::string const& name = "corridor_servoing::Task");
-
-        RTT::NonPeriodicActivity* getNonPeriodicActivity();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the
@@ -99,7 +91,7 @@ namespace corridor_servoing {
          * this call. If the trigger is caused by something different (for
          * instance, a periodic update), then this set is empty.
          */
-        void updateHook(std::vector<RTT::PortInterface*> const& updated_ports);
+        void updateHook();
         
 
         /** This hook is called by Orocos when the component is in the
