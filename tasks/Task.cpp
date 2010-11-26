@@ -17,8 +17,8 @@ class VFHServoing: public VFHStar {
 	VFH vfh;
 	vfh_star::VFHStarDebugData *vfhDebug;
 	vfh_star::VFHStarDebugData debugData;
-	virtual std::vector< std::pair< double, double > > getNextPossibleDirections(const base::Pose& curPose, const double& obstacleSafetyDist, const double& robotWidth) const;
-	virtual base::Pose getProjectedPose(const base::Pose& curPose, const double& heading, const double& distance) const;
+	virtual std::vector< std::pair< double, double > > getNextPossibleDirections(const base::Pose& curPose, double obstacleSafetyDist, double robotWidth) const;
+	virtual base::Pose getProjectedPose(const base::Pose& curPose, double heading, double distance) const;
 };
 
 vfh_star::VFHStarDebugData VFHServoing::getVFHStarDebugData(const std::vector< base::Waypoint >& trajectory)
@@ -47,7 +47,7 @@ vfh_star::VFHStarDebugData VFHServoing::getVFHStarDebugData(const std::vector< b
 }
 
 
-std::vector< std::pair< double, double > > VFHServoing::getNextPossibleDirections(const base::Pose& curPose, const double& obstacleSafetyDist, const double& robotWidth) const
+std::vector< std::pair< double, double > > VFHServoing::getNextPossibleDirections(const base::Pose& curPose, double obstacleSafetyDist, double robotWidth) const
 {
     VFHDebugData dd;
     std::vector< std::pair< double, double > > ret;
@@ -57,7 +57,7 @@ std::vector< std::pair< double, double > > VFHServoing::getNextPossibleDirection
 }
 
 
-base::Pose VFHServoing::getProjectedPose(const base::Pose& curPose, const double& heading, const double& distance) const
+base::Pose VFHServoing::getProjectedPose(const base::Pose& curPose, double heading, double distance) const
 {
     //super omnidirectional robot
     Vector3d p(0, distance, 0);
