@@ -135,12 +135,13 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	    lastDrivenDirection = trajectory.begin()->heading;
 	}
 
-	std::vector<base::Waypoint> tr_out;
+	std::vector<Eigen::Vector3d> tr_out;
 	for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)
-	{
-	    tr_out.push_back(*it);
-	}
-	_trajectory.write(tr_out);
+	    tr_out.push_back(it->position);
+
+        base::geometry::Spline<3> spline;
+        spline.interpolate(tr_out);
+	_trajectory.write(spline);
 
 	std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
 
