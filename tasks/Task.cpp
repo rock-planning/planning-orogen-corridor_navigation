@@ -2,7 +2,7 @@
 #include "Task.hpp"
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
-#include <asguard/Configuration.hpp>
+#include <asguard/Transformation.hpp>
 
 using namespace corridor_servoing;
 using namespace vfh_star;
@@ -74,7 +74,7 @@ Task::Task(std::string const& name)
     : TaskBase(name)
 {
     aggr = new aggregator::StreamAligner();    
-    asguard::Configuration asguardConf;
+    asguard::Transformation asguardConf;
     laser2Body = asguardConf.laser2Body;
     body2Odo.setIdentity();
     
