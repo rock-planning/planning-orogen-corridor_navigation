@@ -79,7 +79,6 @@ Task::Task(std::string const& name)
     body2Odo.setIdentity();
     
     globalHeading = 0;
-    lastDrivenDirection = 0;
 }
 
 
@@ -122,18 +121,13 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 
 	VFHServoing vfh(&trGrid);
 
-	vfh.setObstacleSafetyDistance(_obstacle_safety_distance.get());
-	vfh.setRobotWidth(_robot_width.get());
+        vfh.setCostConfiguration(_cost_conf.get());
+        vfh.setSearchConfiguration(_search_conf.get());
 	
 	base::Time start = base::Time::now();
 
-	std::vector<base::Waypoint> trajectory = vfh.getTrajectory(base::Pose(body2Odo), globalHeading, lastDrivenDirection);
+	std::vector<base::Waypoint> trajectory = vfh.getTrajectory(base::Pose(body2Odo), globalHeading);
 	base::Time end = base::Time::now();
-
-	if(trajectory.size())
-	{
-	    lastDrivenDirection = trajectory.begin()->heading;
-	}
 
 	std::vector<Eigen::Vector3d> tr_out;
 	for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)

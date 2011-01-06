@@ -1,0 +1,23 @@
+#! /usr/bin/env ruby
+
+require 'orocos/log'
+require 'widget_grid'
+
+if ARGV.size < 1 || ARGV.size > 2
+    STDERR.puts "display_tree logfile [stream_name]"
+    exit 1
+end
+
+logs = Orocos::Log::Replay.open ARGV.shift
+port = logs.find_port('/wrappers/vfh_star/Tree', ARGV.shift)
+
+if !port
+    raise "no log stream of type /wrappers/vfh_star/Tree found"
+end
+
+widget_grid = WidgetGrid.new
+base_dir = File.expand_path(File.dirname(__FILE__))
+widget = widget_grid.display(port, :position => :center)
+widget_grid.control(logs)
+
+widget_grid.run

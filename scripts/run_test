@@ -1,0 +1,27 @@
+#! /usr/bin/env ruby
+
+require 'orocos'
+ENV['PKG_CONFIG_PATH'] = "#{File.expand_path(File.dirname(__FILE__), File.join('..', 'build'))}:#{ENV['PKG_CONFIG_PATH']}"
+Orocos.initialize
+
+Orocos.run 'corridorTest' do
+    task = Orocos::TaskContext.get 'vfh_search_test'
+    Orocos.log_all
+
+    windows = []
+    angle_start = 0
+    angle_end = angle_start + rand / 4
+    while angle_end < 2 * Math::PI
+        windows << angle_start << angle_end
+        angle_start = angle_end + rand
+        angle_end   = angle_start + rand
+    end
+
+    config = task.test_conf
+    config.angular_windows = windows
+    task.test_conf = config
+
+    task.start
+    task.wait_for_state :STOPPED
+end
+

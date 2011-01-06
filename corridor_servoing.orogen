@@ -5,12 +5,15 @@ using_library "vfh_star"
 using_library "envire"
 using_library "asguard"
 import_types_from "base"
+import_types_from "vfh_star/TreeSearch.h"
 import_types_from "vfh_star/VFH.h"
+import_types_from "vfh_star/VFHStar.h"
 import_types_from "vfh_star/DebugTypes.h"
 import_types_from "corridor_servoing_types.hpp"
 
+typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
+
 task_context "Task" do
-    
     input_port("scan_samples", "base/samples/LaserScan").
 	needs_reliable_connection.
         doc "LaserScann"
@@ -43,27 +46,31 @@ task_context "Task" do
     property('max_delay', 'double', 0.1).
 	doc 'Time in s the map generator will wait for expected readings.'
 
-    property('robot_width', 'double', 0.55).
-	doc('The width of the robot')
-
-    property('obstacle_safety_distance', 'double', 0.05).
-	doc('The minimal distance, in which the robot will try to navigate around obstacles')
+    property('search_conf', '/vfh_star/TreeSearchConfiguration').
+        doc('Parametrization of the search')
+    property('cost_conf', '/vfh_star/VFHStarConfiguration').
+        doc('Parametrization of the cost function')
 
     needs_configuration
     port_driven 'scan_samples'
 end
 
+task_context "TestTask" do
+    property('test_conf', 'vfh_star::TestConfiguration')
+    property('search_conf',  'vfh_star::TreeSearchConfiguration')
+    property('cost_conf',    'vfh_star::VFHStarConfiguration')
+    property('initial_pose', 'base/Pose')
+
+    output_port('trajectory', '/base/geometry/Spline<3>')
+    output_port('search_tree', '/vfh_star/Tree')
+end
 
 deployment "corridorTest" do
-    cs	= task('corridor_servoing', "corridor_servoing::Task").
+    task('corridor_servoing', "corridor_servoing::Task").
+	triggered
+    task('vfh_search_test', "corridor_servoing::TestTask").
 	triggered
 
     add_default_logger
-
-    if !corba_enabled?
-        browse cs
-    end
-
 end
-
 

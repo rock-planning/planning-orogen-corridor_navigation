@@ -42,9 +42,6 @@ namespace corridor_servoing {
 	
 	/** heading, where the robot should drive */
 	double globalHeading;
-	
-	/** last direction, where the vfh deceided to go */
-	double lastDrivenDirection;
 
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
