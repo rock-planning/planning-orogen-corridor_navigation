@@ -2,13 +2,16 @@ name "corridor_servoing"
 version "0.1"
 
 using_library "vfh_star"
-using_library "envire"
 using_library "asguard"
+using_library 'corridor_navigation'
 import_types_from "base"
+import_types_from "corridor_planner"
+
+
 import_types_from "vfh_star/TreeSearch.h"
-import_types_from "vfh_star/VFH.h"
-import_types_from "vfh_star/VFHStar.h"
 import_types_from "vfh_star/DebugTypes.h"
+import_types_from "corridor_navigation/VFHServoing.hpp"
+import_types_from "corridor_navigation/VFHFollowing.hpp"
 import_types_from "corridor_servoing_types.hpp"
 
 typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
@@ -32,7 +35,10 @@ task_context "Task" do
 
     output_port("gridDump", "vfh_star/GridDump")
 
-    output_port("vfhDebug", "vfh_star/VFHStarDebugData")
+    output_port("vfhDebug", "corridor_navigation/VFHStarDebugData")
+
+    output_port('debugVfhTree', '/vfh_star/Tree').
+        doc 'the resulting internal search tree'
 
     ##########################
     # aggregator parameters
@@ -46,27 +52,52 @@ task_context "Task" do
     property('max_delay', 'double', 0.1).
 	doc 'Time in s the map generator will wait for expected readings.'
 
-    property('search_conf', '/vfh_star/TreeSearchConfiguration').
+    property('search_conf', '/vfh_star/TreeSearchConf').
         doc('Parametrization of the search')
-    property('cost_conf', '/vfh_star/VFHStarConfiguration').
+    property('cost_conf', '/corridor_navigation/VFHServoingConf').
         doc('Parametrization of the cost function')
 
     needs_configuration
     port_driven 'scan_samples'
 end
 
+task_context "FollowingTask" do
+    doc "This task makes the robot cross a given corridor structure, from its beginning to its end"
+
+    property('search_conf',  'vfh_star::TreeSearchConf')
+    property('cost_conf',    'corridor_navigation::VFHFollowingConf')
+    property('search_horizon', 'double').
+        doc 'the search horizon, in meters'
+
+    input_port('corridor', '/corridors/Corridor').
+        doc 'the corridor to follow'
+
+    input_port('pose_samples', '/base/samples/RigidBodyState').
+        doc 'the current robot pose'
+
+    output_port('trajectory', '/base/geometry/Spline<3>').
+        doc 'the generated trajectory'
+
+    output_port('debugVfhTree', '/vfh_star/Tree').
+        doc 'the resulting internal search tree'
+
+    exception_states :DEAD_END, :NO_VIABLE_PATH
+end
+
 task_context "TestTask" do
-    property('test_conf', 'vfh_star::TestConfiguration')
-    property('search_conf',  'vfh_star::TreeSearchConfiguration')
-    property('cost_conf',    'vfh_star::VFHStarConfiguration')
+    property('test_conf', 'corridor_navigation::TestConf')
+    property('search_conf',  'vfh_star::TreeSearchConf')
+    property('cost_conf',    'vfh_star::VFHStarConf')
     property('initial_pose', 'base/Pose')
 
     output_port('trajectory', '/base/geometry/Spline<3>')
     output_port('search_tree', '/vfh_star/Tree')
 end
 
-deployment "corridorTest" do
+deployment "corridorNavigationTest" do
     task('corridor_servoing', "corridor_servoing::Task").
+	triggered
+    task('corridor_following', "corridor_servoing::FollowingTask").
 	triggered
     task('vfh_search_test', "corridor_servoing::TestTask").
 	triggered

@@ -13,7 +13,7 @@ struct corridor_servoing::VFHStarTest : public vfh_star::VFHStar
     {
 
         TreeSearch::AngleIntervals result;
-        double heading = TreeSearch::getHeading(current_pose.orientation);
+        double heading = current_pose.getYaw();
         for (unsigned int i = 0; i < allowed_windows.size(); ++i)
         {
             double from = allowed_windows[i].first + heading;
@@ -69,7 +69,7 @@ bool TestTask::startHook()
         return false;
 
     search->allowed_windows.clear();
-    vfh_star::TestConfiguration test_conf = _test_conf.get();
+    corridor_navigation::TestConf test_conf = _test_conf.get();
     for (unsigned int i = 0; i < test_conf.angular_windows.size() / 2; ++i)
     {
         search->allowed_windows.push_back( make_pair(
@@ -77,8 +77,8 @@ bool TestTask::startHook()
             test_conf.angular_windows[i * 2 + 1]));
     }
     
-    search->setSearchConfiguration(_search_conf.get());
-    search->setCostConfiguration(_cost_conf.get());
+    search->setSearchConf(_search_conf.get());
+    search->setCostConf(_cost_conf.get());
 
     return true;
 }
@@ -87,14 +87,8 @@ void TestTask::updateHook()
 {
     TestTaskBase::updateHook();
 
-    std::vector<base::Waypoint> wp = search->getTrajectory(_initial_pose.get(), _test_conf.get().main_direction);
-
-    std::vector<base::Vector3d> points;
-    for (unsigned int i = 0; i < wp.size(); ++i)
-        points.push_back(wp[i].position);
-
-    base::geometry::Spline<3> trajectory;
-    trajectory.interpolate(points);
+    base::geometry::Spline<3> trajectory =
+        search->getTrajectory(_initial_pose.get(), _test_conf.get().main_direction);
     _trajectory.write(trajectory);
 
     std::cerr << search->getTree().getSize() << " nodes in tree" << std::endl;

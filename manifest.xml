@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <depend package="planning/vfh_star"/>
+  <depend package="planning/orogen/corridor_planner"/>
   <depend package="slam/envire"/>
   <depend package="base/orogen/types"/>
   <depend package="asguard/asguard"/>

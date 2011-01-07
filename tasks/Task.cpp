@@ -1,5 +1,5 @@
-#include <Eigen/NewStdVector>
 #include "Task.hpp"
+#include <corridor_navigation/VFHServoing.hpp>
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
 #include <asguard/Transformation.hpp>
@@ -7,68 +7,6 @@
 using namespace corridor_servoing;
 using namespace vfh_star;
 using namespace Eigen;
-
-class VFHServoing: public VFHStar {
-    public:
-	VFHServoing(const envire::Grid<Traversability> *tr): vfh(tr), vfhDebug(&debugData) {};
-	virtual ~VFHServoing() {};
-	vfh_star::VFHStarDebugData getVFHStarDebugData(const std::vector<base::Waypoint> &trajectory);
-    private:
-	VFH vfh;
-	vfh_star::VFHStarDebugData *vfhDebug;
-	vfh_star::VFHStarDebugData debugData;
-	virtual std::vector< std::pair< double, double > > getNextPossibleDirections(const base::Pose& curPose, double obstacleSafetyDist, double robotWidth) const;
-	virtual base::Pose getProjectedPose(const base::Pose& curPose, double heading, double distance) const;
-};
-
-vfh_star::VFHStarDebugData VFHServoing::getVFHStarDebugData(const std::vector< base::Waypoint >& trajectory)
-{
-    vfh_star::VFHStarDebugData dd_out;
-    for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)
-    {
-	bool found = false;
-	for(std::vector<vfh_star::VFHDebugData>::const_iterator it2 = debugData.steps.begin(); it2 != debugData.steps.end(); it2++) 
-	{
-	    if(it->position == Eigen::Vector3d(it2->pose.position))
-	    {
-		dd_out.steps.push_back(*it2);
-		found = true;
-		break;
-	    }
-	    
-	}
-	if(!found && (it + 1) != trajectory.end() )
-	{
-	    std::cerr << "BAD debug data is fishy" << std::endl;
-	    throw std::runtime_error("Could not build VFHStarDebugData");
-	}
-    }
-    return dd_out;
-}
-
-
-std::vector< std::pair< double, double > > VFHServoing::getNextPossibleDirections(const base::Pose& curPose, double obstacleSafetyDist, double robotWidth) const
-{
-    VFHDebugData dd;
-    std::vector< std::pair< double, double > > ret;
-    ret = vfh.getNextPossibleDirections(curPose, obstacleSafetyDist, robotWidth, &dd);
-    vfhDebug->steps.push_back(dd);
-    return ret;
-}
-
-
-base::Pose VFHServoing::getProjectedPose(const base::Pose& curPose, double heading, double distance) const
-{
-    //super omnidirectional robot
-    Vector3d p(0, distance, 0);
-    
-    base::Pose ret;
-    ret.orientation = AngleAxisd(heading, Vector3d::UnitZ());
-    ret.position = curPose.position + ret.orientation * p;
-    
-    return ret;
-}
-
 
 Task::Task(std::string const& name)
     : TaskBase(name)
@@ -119,24 +57,15 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	    }			
 	}		    
 
-	VFHServoing vfh(&trGrid);
-
-        vfh.setCostConfiguration(_cost_conf.get());
-        vfh.setSearchConfiguration(_search_conf.get());
+        corridor_navigation::VFHServoing vfh(&trGrid);
+        vfh.setCostConf(_cost_conf.get());
+        vfh.setSearchConf(_search_conf.get());
 	
 	base::Time start = base::Time::now();
-
-	std::vector<base::Waypoint> trajectory = vfh.getTrajectory(base::Pose(body2Odo), globalHeading);
+        std::vector<base::Waypoint> waypoints =
+            vfh.getWaypoints(base::Pose(body2Odo), globalHeading);
 	base::Time end = base::Time::now();
-
-	std::vector<base::Vector3d> tr_out;
-	for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)
-	    tr_out.push_back(it->position);
-
-        base::geometry::Spline<3> spline;
-        spline.interpolate(tr_out);
-	_trajectory.write(spline);
-
+	_trajectory.write(TreeSearch::waypointsToSpline(waypoints));
 	std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
 
 	//detach items, to avoid invalid free when env get's destroyed
@@ -152,7 +81,9 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
         }
 
         if (_vfhDebug.connected())
-            _vfhDebug.write(vfh.getVFHStarDebugData(trajectory));
+            _vfhDebug.write(vfh.getVFHStarDebugData(waypoints));
+        if (_debugVfhTree.connected())
+            _debugVfhTree.write(vfh.getTree());
     }
 }
 

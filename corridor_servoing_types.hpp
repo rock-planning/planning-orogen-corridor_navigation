@@ -6,8 +6,6 @@
 #include <base/Types.hpp>
 #include <vector>
 
-// #include <../../include/SlopeBinSegmenter.h>
-
 namespace wrappers {
     namespace vfh_star {
         struct TreeNode {
@@ -27,16 +25,11 @@ namespace wrappers {
     }
 }
 
-namespace vfh_star {
-    struct TestConfiguration {
+namespace corridor_navigation {
+    struct TestConf {
         std::vector< double > angular_windows;
         double main_direction;
     };
-
-    struct VFHStarDebugData {
-	std::vector<VFHDebugData> steps;
-	std::vector<base::Waypoint> generatedTrajectory;
-    };   
 }
 
 #endif
