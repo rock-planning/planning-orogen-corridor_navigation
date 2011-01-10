@@ -89,7 +89,7 @@ void TestTask::updateHook()
 
     std::vector<base::Waypoint> wp = search->getTrajectory(_initial_pose.get(), _test_conf.get().main_direction);
 
-    std::vector<Eigen::Vector3d> points;
+    std::vector<base::Vector3d> points;
     for (unsigned int i = 0; i < wp.size(); ++i)
         points.push_back(wp[i].position);
 

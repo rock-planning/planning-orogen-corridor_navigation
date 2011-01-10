@@ -129,7 +129,7 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	std::vector<base::Waypoint> trajectory = vfh.getTrajectory(base::Pose(body2Odo), globalHeading);
 	base::Time end = base::Time::now();
 
-	std::vector<Eigen::Vector3d> tr_out;
+	std::vector<base::Vector3d> tr_out;
 	for(std::vector<base::Waypoint>::const_iterator it = trajectory.begin(); it != trajectory.end(); it++)
 	    tr_out.push_back(it->position);
 
