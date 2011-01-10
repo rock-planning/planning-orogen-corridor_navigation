@@ -4,6 +4,7 @@
   <depend package="slam/envire"/>
   <depend package="base/orogen/types"/>
   <depend package="asguard/asguard"/>
+  <depend package="drivers/aggregator"/>
 
   <depend package="tools/logger"/>
   <depend package="orogen"/>
