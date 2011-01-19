@@ -1,0 +1,30 @@
+#! /usr/bin/env ruby
+require 'gnuplot'
+require 'pocolog'
+
+file = Pocolog::Logfiles.open(ARGV[0])
+samples = file.stream('corridor_following.debugLUT').samples
+
+_, _, data = samples.first
+size   = data.size
+values = data.values.to_a
+
+xcol = (0...(size/2)).to_a
+ycol = (0...size).to_a
+d = []
+(size / 2).times do |x|
+    line = []
+    size.times do |y|
+        c = x * (size + 2) + y + 1
+        line << values[c]
+    end
+    d << line
+end
+
+Gnuplot.open do |gp|
+    Gnuplot::SPlot.new( gp ) do |plot|
+        plot.data << Gnuplot::DataSet.new([xcol, ycol, d])
+    end
+end
+
+

@@ -70,6 +70,8 @@ void FollowingTask::outputDebuggingTypes()
 {
     if (_debugVfhTree.connected())
         _debugVfhTree.write(search->getTree());
+    if (_debugLUT.connected())
+        _debugLUT.write(search->getHeuristicLUT());
 }
 
 // void FollowingTask::errorHook()

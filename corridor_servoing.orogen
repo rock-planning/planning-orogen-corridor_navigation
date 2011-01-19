@@ -11,6 +11,7 @@ import_types_from "corridor_planner"
 import_types_from "vfh_star/Types.h"
 import_types_from "vfh_star/TreeSearch.h"
 import_types_from "vfh_star/DebugTypes.h"
+import_types_from "vfh_star/HeuristicLUT.h"
 import_types_from "corridor_navigation/Types.hpp"
 import_types_from "corridor_servoing_types.hpp"
 
@@ -82,6 +83,8 @@ task_context "FollowingTask" do
 
     output_port('debugVfhTree', '/vfh_star/Tree').
         doc 'the resulting internal search tree'
+    output_port('debugLUT', '/vfh_star/HeuristicLUT').
+        doc 'the LUT that represents the heuristic function'
 
     exception_states :DEAD_END, :NO_VIABLE_PATH
     port_driven 'pose_samples'
