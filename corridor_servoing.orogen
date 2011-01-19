@@ -8,10 +8,10 @@ import_types_from "base"
 import_types_from "corridor_planner"
 
 
+import_types_from "vfh_star/Types.h"
 import_types_from "vfh_star/TreeSearch.h"
 import_types_from "vfh_star/DebugTypes.h"
-import_types_from "corridor_navigation/VFHServoing.hpp"
-import_types_from "corridor_navigation/VFHFollowing.hpp"
+import_types_from "corridor_navigation/Types.hpp"
 import_types_from "corridor_servoing_types.hpp"
 
 typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
