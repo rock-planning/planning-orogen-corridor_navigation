@@ -1,23 +1,24 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
 #include "TestTask.hpp"
+#include <vfh_star/VFHStar.h>
 
 using namespace corridor_servoing;
 using namespace Eigen;
 
 struct corridor_servoing::VFHStarTest : public vfh_star::VFHStar
 {
-    AngleIntervals allowed_windows;
+AngleIntervals allowed_windows;
 
-    AngleIntervals getNextPossibleDirections(const base::Pose& current_pose, double safetyDistance, double robotWidth) const
+AngleIntervals getNextPossibleDirections(const vfh_star::TreeNode& current_node, double safetyDistance, double robotWidth) const
+{
+
+    TreeSearch::AngleIntervals result;
+    double heading = current_node.getPose().getYaw();
+    for (unsigned int i = 0; i < allowed_windows.size(); ++i)
     {
-
-        TreeSearch::AngleIntervals result;
-        double heading = current_pose.getYaw();
-        for (unsigned int i = 0; i < allowed_windows.size(); ++i)
-        {
-            double from = allowed_windows[i].first + heading;
-            double to   = allowed_windows[i].second + heading;
+        double from = allowed_windows[i].first + heading;
+        double to   = allowed_windows[i].second + heading;
 
             if (from > 2 * M_PI)
                 from -= 2 * M_PI;
@@ -35,12 +36,12 @@ struct corridor_servoing::VFHStarTest : public vfh_star::VFHStar
         return result;
     }
 
-    base::Pose getProjectedPose(const base::Pose& curPose,
+    std::pair<base::Pose, bool> getProjectedPose(const vfh_star::TreeNode& curNode,
             double heading, double distance) const
     {
         Eigen::Quaterniond q = Quaterniond(AngleAxisd(heading, Vector3d::UnitZ()));
-        Eigen::Vector3d p = curPose.position + q * Vector3d::UnitY() * distance;
-        return base::Pose(p, q);
+        Eigen::Vector3d p = curNode.getPose().position + q * Vector3d::UnitY() * distance;
+        return std::make_pair(base::Pose(p, q), true);
     }
 };
 
