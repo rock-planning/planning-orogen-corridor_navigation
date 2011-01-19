@@ -56,6 +56,8 @@ task_context "Task" do
         doc('Parametrization of the search')
     property('cost_conf', '/corridor_navigation/VFHServoingConf').
         doc('Parametrization of the cost function')
+    property('search_horizon', 'double').
+        doc 'the search horizon, in meters'
 
     needs_configuration
     port_driven 'scan_samples'
@@ -90,6 +92,8 @@ task_context "TestTask" do
     property('search_conf',  'vfh_star::TreeSearchConf')
     property('cost_conf',    'vfh_star::VFHStarConf')
     property('initial_pose', 'base/Pose')
+    property('search_horizon', 'double').
+        doc 'the search horizon, in meters'
 
     output_port('trajectory', '/base/geometry/Spline<3>')
     output_port('search_tree', '/vfh_star/Tree')

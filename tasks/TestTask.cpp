@@ -88,7 +88,7 @@ void TestTask::updateHook()
     TestTaskBase::updateHook();
 
     base::geometry::Spline<3> trajectory =
-        search->getTrajectory(_initial_pose.get(), _test_conf.get().main_direction);
+        search->getTrajectory(_initial_pose.get(), _test_conf.get().main_direction, _search_horizon.get());
     _trajectory.write(trajectory);
 
     std::cerr << search->getTree().getSize() << " nodes in tree" << std::endl;

@@ -63,7 +63,7 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 	
 	base::Time start = base::Time::now();
         std::vector<base::Waypoint> waypoints =
-            vfh.getWaypoints(base::Pose(body2Odo), globalHeading);
+            vfh.getWaypoints(base::Pose(body2Odo), globalHeading, _search_horizon.get());
 	base::Time end = base::Time::now();
 	_trajectory.write(TreeSearch::waypointsToSpline(waypoints));
 	std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
