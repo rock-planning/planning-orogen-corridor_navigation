@@ -82,6 +82,7 @@ task_context "FollowingTask" do
         doc 'the resulting internal search tree'
 
     exception_states :DEAD_END, :NO_VIABLE_PATH
+    port_driven 'pose_samples'
 end
 
 task_context "TestTask" do
