@@ -21,6 +21,7 @@ namespace wrappers {
 
         struct Tree {
             std::vector< TreeNode > nodes;
+            int finalNode;
         };
     }
 }
