@@ -1,0 +1,123 @@
+#! /usr/bin/env ruby
+
+require 'orocos'
+require 'widget_grid'
+require 'eigen'
+ENV['PKG_CONFIG_PATH'] = "#{File.expand_path(File.dirname(__FILE__), File.join('..', 'build'))}:#{ENV['PKG_CONFIG_PATH']}"
+Orocos.initialize
+
+def usage
+    STDERR.puts "run_following_test <logfile> [stream_name]"
+    STDERR.puts "where <logfile> contains either a stream of type /corridors/Corridor_m"
+    STDERR.puts "or a stream of type /corridors/Plan_m. If stream_name is given, it will"
+    STDERR.puts "be used"
+end
+
+if ARGV.empty?
+    usage
+    exit(1)
+end
+
+logfile     = ARGV.shift
+stream_name = ARGV.shift
+logfile = Pocolog::Logfiles.open(logfile)
+
+stream =
+    if stream_name
+        logfile.stream(stream_name)
+    else
+        logfile.streams.find { |s| s.type.name == '/corridors/Corridor_m' } ||
+            logfile.streams.find { |s| s.type.name == '/corridors/Plan_m' }
+    end
+
+samples = stream.samples.to_a
+if samples.empty?
+    raise "no sample found"
+end
+
+data = samples.first.last
+# If the data is given as a plan, select a random path
+if data.respond_to?(:all_paths) # this is a plan, not a corridor
+    puts data.class.corridors.convertion_to_ruby
+    path = data.all_paths
+    path = path[rand(path.size)]
+    data = data.path_to_corridor(path)
+end
+
+puts data.median_curve.class
+if data.median_curve.class != Types::Base::Geometry::Spline3
+    raise
+end
+
+
+def do_test(follower, data)
+    Orocos.log_all
+    gui = WidgetGrid.new
+
+    follower.search_horizon = 2
+    search_conf = follower.search_conf
+    search_conf.stepDistance = 0.25
+    search_conf.maxTreeSize = 5000
+    search_conf.discountFactor = 1.0
+    search_conf.angularSamplingMin = Math::PI / 20
+    search_conf.angularSamplingMax = Math::PI / 10
+    search_conf.angularSamplingNominalCount = 5
+    follower.search_conf = search_conf
+
+    cost_conf = follower.cost_conf
+    cost_conf.speedProfile        = [0.6, 0.5 * (2.0 / Math::PI)] # 60cm/s on a straight line, 10cm/s to turn Math::PI/2 over a meter
+    cost_conf.pointTurnThreshold  = Math::PI / 4
+    cost_conf.pointTurnSpeed      = Math::PI / 2 / 3
+    cost_conf.speedAfterPointTurn = 0.2
+    follower.cost_conf = cost_conf
+
+    base_dir = File.expand_path(File.dirname(__FILE__))
+    widget = gui.display(follower.debugVfhTree, :env => File.join(base_dir, 'track-simple'), :pointcloud => [1, 100, 100, 0.25, 0.25], :position => :center)
+    widget.setTreeCostMode(0)
+    widget.removeTreeLeaves(false)
+    widget.updateSelectedCorridor(data)
+
+    follower.start
+
+    corridor_w = follower.corridor.writer
+    pose_w     = follower.pose_samples.writer
+    traj_r     = follower.trajectory.reader
+    # lut_r      = follower.debugLUT.reader
+    corridor_w.write(data)
+
+    rbs = Types::Base::Samples::RigidBodyState.new
+    rbs.position    = data.median_curve.get(data.median_curve.curve_length / 5)
+    rbs.orientation = Eigen::Quaternion.Unit
+    pose_w.write(rbs)
+
+    gui.run(1000) do
+        # if lut = lut_r.read_new
+        #     pp lut
+        # end
+
+        if !follower.running?
+            puts "follower task terminated with state #{follower.state}"
+            return
+        end
+
+        widget.updateSelectedCorridor(data)
+        # puts "do we have a trajectory yet ?"
+        # if result = traj_r.read_new
+        #     p, t = result.get(result.end_param / 10, true)
+        #     rbs.position = p
+        #     pose_w.write(rbs)
+        #     puts "new position: #{p.x} #{p.y} #{p.z}"
+        # end
+    end
+end
+
+begin
+    follower = Orocos::TaskContext.get 'corridor_following'
+    do_test(follower, data)
+rescue Orocos::NotFound
+    Orocos.run 'corridorNavigationTest' do
+        follower = Orocos::TaskContext.get 'corridor_following'
+        do_test(follower, data)
+    end
+end
+

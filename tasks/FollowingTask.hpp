@@ -75,6 +75,8 @@ namespace corridor_servoing {
          * before calling start() again.
          */
         // void cleanupHook();
+
+        void outputDebuggingTypes();
     };
 }
 

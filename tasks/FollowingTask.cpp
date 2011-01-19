@@ -1,6 +1,7 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.cpp */
 
 #include "FollowingTask.hpp"
+#include <corridor_navigation/VFHFollowing.hpp>
 
 using namespace corridor_servoing;
 
@@ -35,12 +36,36 @@ bool FollowingTask::startHook()
 void FollowingTask::updateHook()
 {
     FollowingTaskBase::updateHook();
+
+    corridors::Corridor corridor;
+    if (_corridor.readNewest(corridor) == RTT::NewData)
+    {
+        search->setCorridor(corridor);
+    }
+
     base::samples::RigidBodyState current_pose;
     if (_pose_samples.readNewest(current_pose) == RTT::NoData)
         return;
+    try
+    {
+        base::Time start = base::Time::now();
+        base::geometry::Spline<3> trajectory =
+            search->getTrajectory(base::Pose(current_pose.position, current_pose.orientation), _search_horizon.get());
 
-    search->getTrajectory(base::Pose(current_pose.position, current_pose.orientation), _search_horizon.get());
+        _trajectory.write(trajectory);
 
+        outputDebuggingTypes();
+    }
+    catch(std::exception const& e)
+    {
+        outputDebuggingTypes();
+        throw;
+    }
+
+}
+
+void FollowingTask::outputDebuggingTypes()
+{
     if (_debugVfhTree.connected())
         _debugVfhTree.write(search->getTree());
 }
