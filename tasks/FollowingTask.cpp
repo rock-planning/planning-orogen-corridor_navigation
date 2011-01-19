@@ -49,8 +49,10 @@ void FollowingTask::updateHook()
     try
     {
         base::Time start = base::Time::now();
+        std::cerr << "starting" << std::endl;
         base::geometry::Spline<3> trajectory =
             search->getTrajectory(base::Pose(current_pose.position, current_pose.orientation), _search_horizon.get());
+        std::cerr << "planning took " << (base::Time::now() - start).toMilliseconds() << " milliseconds" << std::endl;
 
         _trajectory.write(trajectory);
 
