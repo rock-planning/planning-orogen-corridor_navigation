@@ -3,7 +3,7 @@
 #include "FollowingTask.hpp"
 #include <corridor_navigation/VFHFollowing.hpp>
 
-using namespace corridor_servoing;
+using namespace corridor_navigation;
 
 FollowingTask::FollowingTask(std::string const& name, TaskCore::TaskState initial_state)
     : FollowingTaskBase(name, initial_state)

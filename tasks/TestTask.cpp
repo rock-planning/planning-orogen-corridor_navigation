@@ -3,10 +3,10 @@
 #include "TestTask.hpp"
 #include <vfh_star/VFHStar.h>
 
-using namespace corridor_servoing;
+using namespace corridor_navigation;
 using namespace Eigen;
 
-struct corridor_servoing::VFHStarTest : public vfh_star::VFHStar
+struct corridor_navigation::VFHStarTest : public vfh_star::VFHStar
 {
 AngleIntervals allowed_windows;
 

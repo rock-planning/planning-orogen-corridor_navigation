@@ -1,4 +1,4 @@
-name "corridor_servoing"
+name "corridor_navigation"
 version "0.1"
 
 using_library "vfh_star"
@@ -11,12 +11,14 @@ import_types_from "corridor_planner"
 import_types_from "vfh_star/Types.h"
 import_types_from "vfh_star/TreeSearch.h"
 import_types_from "vfh_star/DebugTypes.h"
-import_types_from "corridor_navigation/Types.hpp"
-import_types_from "corridor_servoing_types.hpp"
+import_types_from "corridor_navigation/VFHFollowingConf.hpp"
+import_types_from "corridor_navigation/VFHServoingConf.hpp"
+import_types_from "corridor_navigation/VFHStarDebugData.hpp"
+import_types_from "corridorNavigationTypes.hpp"
 
 typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
 
-task_context "Task" do
+task_context "ServoingTask" do
     input_port("scan_samples", "base/samples/LaserScan").
 	needs_reliable_connection.
         doc "LaserScann"
@@ -100,11 +102,11 @@ task_context "TestTask" do
 end
 
 deployment "corridorNavigationTest" do
-    task('corridor_servoing', "corridor_servoing::Task").
+    task('corridor_servoing', "corridor_navigation::ServoingTask").
 	triggered
-    task('corridor_following', "corridor_servoing::FollowingTask").
+    task('corridor_following', "corridor_navigation::FollowingTask").
 	triggered
-    task('vfh_search_test', "corridor_servoing::TestTask").
+    task('vfh_search_test', "corridor_navigation::TestTask").
 	triggered
 
     add_default_logger

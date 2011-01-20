@@ -1,11 +1,11 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.hpp */
 
-#ifndef CORRIDOR_SERVOING_TESTTASK_TASK_HPP
-#define CORRIDOR_SERVOING_TESTTASK_TASK_HPP
+#ifndef CORRIDOR_NAVIGATION_TESTTASK_TASK_HPP
+#define CORRIDOR_NAVIGATION_TESTTASK_TASK_HPP
 
-#include "corridor_servoing/TestTaskBase.hpp"
+#include "corridor_navigation/TestTaskBase.hpp"
 
-namespace corridor_servoing {
+namespace corridor_navigation {
     class VFHStarTest;
     class TestTask : public TestTaskBase
     {
@@ -14,7 +14,7 @@ namespace corridor_servoing {
         VFHStarTest* search;
 
     public:
-        TestTask(std::string const& name = "corridor_servoing::TestTask", TaskCore::TaskState initial_state = Stopped);
+        TestTask(std::string const& name = "corridor_navigation::TestTask", TaskCore::TaskState initial_state = Stopped);
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the

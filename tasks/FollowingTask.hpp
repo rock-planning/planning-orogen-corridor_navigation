@@ -1,15 +1,15 @@
 /* Generated from orogen/lib/orogen/templates/tasks/Task.hpp */
 
-#ifndef CORRIDOR_SERVOING_FOLLOWINGTASK_TASK_HPP
-#define CORRIDOR_SERVOING_FOLLOWINGTASK_TASK_HPP
+#ifndef CORRIDOR_NAVIGATION_FOLLOWINGTASK_TASK_HPP
+#define CORRIDOR_NAVIGATION_FOLLOWINGTASK_TASK_HPP
 
-#include "corridor_servoing/FollowingTaskBase.hpp"
+#include "corridor_navigation/FollowingTaskBase.hpp"
 
 namespace corridor_navigation {
     class VFHFollowing;
 }
 
-namespace corridor_servoing {
+namespace corridor_navigation {
     class FollowingTask : public FollowingTaskBase
     {
 	friend class FollowingTaskBase;
@@ -17,7 +17,7 @@ namespace corridor_servoing {
         corridor_navigation::VFHFollowing* search;
 
     public:
-        FollowingTask(std::string const& name = "corridor_servoing::FollowingTask", TaskCore::TaskState initial_state = Stopped);
+        FollowingTask(std::string const& name = "corridor_navigation::FollowingTask", TaskCore::TaskState initial_state = Stopped);
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the

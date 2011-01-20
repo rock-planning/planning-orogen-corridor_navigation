@@ -1,9 +1,9 @@
 /* Generated from orogen/lib/orogen/templates/typekit/Opaques.hpp */
 
-#ifndef __OROGEN_GENERATED_corridor_servoing_USER_MARSHALLING_HH
-#define __OROGEN_GENERATED_corridor_servoing_USER_MARSHALLING_HH
+#ifndef __OROGEN_GENERATED_corridor_navigation_USER_MARSHALLING_HH
+#define __OROGEN_GENERATED_corridor_navigation_USER_MARSHALLING_HH
 
-#include <corridor_servoing/Types.hpp>
+#include <corridor_navigation/Types.hpp>
 
 namespace orogen_typekits
 {

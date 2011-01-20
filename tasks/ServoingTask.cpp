@@ -1,15 +1,15 @@
-#include "Task.hpp"
+#include "ServoingTask.hpp"
 #include <corridor_navigation/VFHServoing.hpp>
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
 #include <asguard/Transformation.hpp>
 
-using namespace corridor_servoing;
+using namespace corridor_navigation;
 using namespace vfh_star;
 using namespace Eigen;
 
-Task::Task(std::string const& name)
-    : TaskBase(name)
+ServoingTask::ServoingTask(std::string const& name)
+    : ServoingTaskBase(name)
 {
     aggr = new aggregator::StreamAligner();    
     asguard::Transformation asguardConf;
@@ -20,13 +20,13 @@ Task::Task(std::string const& name)
 }
 
 
-void Task::odometry_callback(base::Time ts, const base::samples::RigidBodyState& odometry_reading)
+void ServoingTask::odometry_callback(base::Time ts, const base::samples::RigidBodyState& odometry_reading)
 {
     gotOdometry = true;
     body2Odo = odometry_reading;
 }
 
-void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_reading)
+void ServoingTask::scan_callback(base::Time ts, const base::samples::LaserScan& scan_reading)
 {
     if(!gotOdometry)
 	return;
@@ -90,10 +90,10 @@ void Task::scan_callback(base::Time ts, const base::samples::LaserScan& scan_rea
 
 
 /// The following lines are template definitions for the various state machine
-// hooks defined by Orocos::RTT. See Task.hpp for more detailed
+// hooks defined by Orocos::RTT. See ServoingTask.hpp for more detailed
 // documentation about them.
 
-bool Task::configureHook()
+bool ServoingTask::configureHook()
 {    
     // setup the aggregator with the timeout value provided by the module
     aggr->setTimeout( base::Time::fromSeconds( _max_delay.value() ) );
@@ -101,12 +101,12 @@ bool Task::configureHook()
     const double buffer_size_factor = 2.0;
 
     od_idx = aggr->registerStream<base::samples::RigidBodyState>(
-	   boost::bind( &Task::odometry_callback, this, _1, _2 ),
+	   boost::bind( &ServoingTask::odometry_callback, this, _1, _2 ),
 	   buffer_size_factor* ceil( _max_delay.value()/_odometry_period.value() ),
 	   base::Time::fromSeconds( _odometry_period.value() ) );
     
     scan_idx = aggr->registerStream<base::samples::LaserScan>(
-	   boost::bind( &Task::scan_callback, this, _1, _2 ),
+	   boost::bind( &ServoingTask::scan_callback, this, _1, _2 ),
 	   buffer_size_factor* ceil( _max_delay.value()/_scan_period.value() ),
 	   base::Time::fromSeconds( _scan_period.value() ) );
 
@@ -115,7 +115,7 @@ bool Task::configureHook()
     return true;
 }
 
-// bool Task::startHook()
+// bool ServoingTask::startHook()
 // {
 //     return true;
 // }
@@ -123,7 +123,7 @@ bool Task::configureHook()
 
 
 
-void Task::updateHook()
+void ServoingTask::updateHook()
 {
     base::samples::LaserScan scan_reading;
     while( _scan_samples.read(scan_reading) == RTT::NewData )
@@ -141,13 +141,13 @@ void Task::updateHook()
     while( aggr->step() );    
 }
 
-// void Task::errorHook()
+// void ServoingTask::errorHook()
 // {
 // }
-// void Task::stopHook()
+// void ServoingTask::stopHook()
 // {
 // }
-// void Task::cleanupHook()
+// void ServoingTask::cleanupHook()
 // {
 // }
 

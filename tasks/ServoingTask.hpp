@@ -1,15 +1,15 @@
-#ifndef CORRIDOR_SERVOING_TASK_TASK_HPP
-#define CORRIDOR_SERVOING_TASK_TASK_HPP
+#ifndef CORRIDOR_NAVIGATION_TASK_TASK_HPP
+#define CORRIDOR_NAVIGATION_TASK_TASK_HPP
 
-#include "corridor_servoing/TaskBase.hpp"
+#include "corridor_navigation/ServoingTaskBase.hpp"
 #include <StreamAligner.hpp>
 #include <vfh_star/TraversabilityMapGenerator.h>
 #include <Eigen/Core>
 
-namespace corridor_servoing {
-    class Task : public TaskBase
+namespace corridor_navigation {
+    class ServoingTask : public ServoingTaskBase
     {
-	friend class TaskBase;
+	friend class ServoingTaskBase;
     protected:
 	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
@@ -45,7 +45,7 @@ namespace corridor_servoing {
 
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-        Task(std::string const& name = "corridor_servoing::Task");
+        ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the

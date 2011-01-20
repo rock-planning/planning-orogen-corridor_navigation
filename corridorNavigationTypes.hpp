@@ -1,5 +1,5 @@
-#ifndef __CORRIDOR_SERVOING_TYPES__H
-#define __CORRIDOR_SERVOING_TYPES__H
+#ifndef OROGEN_CORRIDOR_NAVIGATION_TYPES__H
+#define OROGEN_CORRIDOR_NAVIGATION_TYPES__H
 
 #include <vfh_star/VFH.h>
 #include <base/waypoint.h>
@@ -11,6 +11,7 @@ namespace wrappers {
         struct TreeNode {
             int parent;
 
+            // use the marshalled version of pose from the base typekit
             base::Pose_m pose;
             double cost;
             double heuristic;
