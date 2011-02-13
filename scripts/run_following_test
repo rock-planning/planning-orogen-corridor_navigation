@@ -38,17 +38,10 @@ end
 data = samples.first.last
 # If the data is given as a plan, select a random path
 if data.respond_to?(:all_paths) # this is a plan, not a corridor
-    puts data.class.corridors.convertion_to_ruby
     path = data.all_paths
     path = path[rand(path.size)]
     data = data.path_to_corridor(path)
 end
-
-puts data.median_curve.class
-if data.median_curve.class != Types::Base::Geometry::Spline3
-    raise
-end
-
 
 def do_test(follower, data)
     Orocos.log_all
@@ -84,6 +77,13 @@ def do_test(follower, data)
     traj_r     = follower.trajectory.reader
     # lut_r      = follower.debugLUT.reader
     corridor_w.write(data)
+
+    # If the data is given as a plan, select a random path
+    if data.respond_to?(:all_paths) # this is a plan, not a corridor
+        path = data.all_paths
+        path = path[rand(path.size)]
+        data = data.path_to_corridor(path)
+    end
 
     rbs = Types::Base::Samples::RigidBodyState.new
     rbs.position    = data.median_curve.get(data.median_curve.curve_length / 5)

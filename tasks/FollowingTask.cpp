@@ -53,10 +53,12 @@ void FollowingTask::updateHook()
         base::geometry::Spline<3> trajectory =
             search->getTrajectory(base::Pose(current_pose.position, current_pose.orientation), _search_horizon.get());
         std::cerr << "planning took " << (base::Time::now() - start).toMilliseconds() << " milliseconds" << std::endl;
+        outputDebuggingTypes();
 
+        if (trajectory.isEmpty())
+            return exception(NO_VIABLE_PATH);
         _trajectory.write(trajectory);
 
-        outputDebuggingTypes();
     }
     catch(std::exception const& e)
     {
