@@ -1,0 +1,13 @@
+#! /usr/bin/env ruby
+
+require 'pocolog'
+logfile = Pocolog::Logfiles.open(ARGV.shift)
+
+logfile.stream(ARGV.shift).samples.each_with_index do |(_, _, sample), idx|
+    puts "==== Tree #{idx}"
+    sample.nodes.each_with_index do |n, i|
+        puts "#{i} #{n.pose.position.to_a.inspect} #{n.cost} #{n.heuristic} #{n.direction}"
+    end
+end
+puts
+
