@@ -72,6 +72,16 @@ void FollowingTask::outputDebuggingTypes()
 {
     if (_debugVfhTree.connected())
         _debugVfhTree.write(search->getTree());
+    if (_debug.connected())
+    {
+        FollowingDebug debug;
+        pair<base::Vector3d, base::Vector3d> h = search->getHorizon();
+        debug.horizon[0] = h.first;
+        debug.horizon[1] = h.second;
+        debug.tree = search->getTree();
+        _debug.write(debug);
+    }
+
 }
 
 // void FollowingTask::errorHook()

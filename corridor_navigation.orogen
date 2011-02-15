@@ -85,6 +85,9 @@ task_context "FollowingTask" do
     output_port('debugVfhTree', '/vfh_star/Tree').
         doc 'the resulting internal search tree'
 
+    output_port('debug', '/corridor_navigation/FollowingDebug').
+        doc 'the resulting state of the planner'
+
     exception_states :DEAD_END, :NO_VIABLE_PATH
     port_driven 'pose_samples'
 end

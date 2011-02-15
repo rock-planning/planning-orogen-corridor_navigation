@@ -32,6 +32,11 @@ namespace corridor_navigation {
         std::vector< double > angular_windows;
         double main_direction;
     };
+
+    struct FollowingDebug {
+        base::Vector3d horizon[2];
+        vfh_star::Tree tree;
+    };
 }
 
 #endif
