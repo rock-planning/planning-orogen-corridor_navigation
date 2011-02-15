@@ -39,8 +39,27 @@ data = samples.first.last
 # If the data is given as a plan, select a random path
 if data.respond_to?(:all_paths) # this is a plan, not a corridor
     path = data.all_paths
-    path = path[rand(path.size)]
+    # path = path[rand(path.size)]
+    path = path[2]
     data = data.path_to_corridor(path)
+
+    # length = data.width_curve.end_param - data.width_curve.start_param
+    # t = 0
+    # while t < length
+    #     puts data.width_curve.get(t)
+    #     t += length / 100
+    # end
+end
+
+def advance(rbs, pose_w, trajectory)
+    p, t = trajectory.get(trajectory.end_param / 10, true)
+    t.normalize!
+    angle = Eigen::Vector3.UnitY.angle_to(t)
+
+    rbs.position = p
+    rbs.orientation = Eigen::Quaternion.from_yaw(angle)
+    pose_w.write(rbs)
+    puts "new position: #{p.x} #{p.y} #{p.z}, theta=#{rbs.orientation.yaw / Math::PI * 180}"
 end
 
 def do_test(follower, data)
@@ -50,24 +69,29 @@ def do_test(follower, data)
     follower.search_horizon = 2
     search_conf = follower.search_conf
     search_conf.stepDistance = 0.25
-    search_conf.maxTreeSize = 5000
+    search_conf.maxTreeSize = 10000
     search_conf.discountFactor = 1.0
-    search_conf.angularSamplingMin = Math::PI / 20
+    search_conf.angularSamplingMin = Math::PI / 30
     search_conf.angularSamplingMax = Math::PI / 10
     search_conf.angularSamplingNominalCount = 5
     follower.search_conf = search_conf
 
     cost_conf = follower.cost_conf
-    cost_conf.speedProfile        = [0.6, 0.5 * (2.0 / Math::PI)] # 60cm/s on a straight line, 10cm/s to turn Math::PI/2 over a meter
+    cost_conf.speedProfile        = [0.6, 1.0 * (2.0 / Math::PI)] # 60cm/s on a straight line, 10cm/s to turn Math::PI/2 over a meter
     cost_conf.pointTurnThreshold  = Math::PI / 4
-    cost_conf.pointTurnSpeed      = Math::PI / 2 / 3
+    cost_conf.pointTurnSpeed      = Math::PI / 10
     cost_conf.speedAfterPointTurn = 0.2
+    cost_conf.safetyDistanceToBorder = 0.5
+    cost_conf.distanceToBorderWeight[0] = 2
+    cost_conf.distanceToBorderWeight[1] = 5
+    cost_conf.baseTurnCost = 0.0
+    cost_conf.finalDirectionCost = 0;
     follower.cost_conf = cost_conf
 
     base_dir = File.expand_path(File.dirname(__FILE__))
     widget = gui.display(follower.debugVfhTree, :env => File.join(base_dir, 'track-simple'), :pointcloud => [1, 100, 100, 0.25, 0.25], :position => :center)
-    widget.setTreeCostMode(0)
-    widget.removeTreeLeaves(false)
+    widget.setTreeCostMode(1)
+    widget.removeTreeLeaves(true)
     widget.updateSelectedCorridor(data)
 
     follower.start
@@ -75,39 +99,93 @@ def do_test(follower, data)
     corridor_w = follower.corridor.writer
     pose_w     = follower.pose_samples.writer
     traj_r     = follower.trajectory.reader
+    debug_r    = follower.debug.reader
     # lut_r      = follower.debugLUT.reader
     corridor_w.write(data)
 
-    # If the data is given as a plan, select a random path
-    if data.respond_to?(:all_paths) # this is a plan, not a corridor
-        path = data.all_paths
-        path = path[rand(path.size)]
-        data = data.path_to_corridor(path)
-    end
-
     rbs = Types::Base::Samples::RigidBodyState.new
-    rbs.position    = data.median_curve.get(data.median_curve.curve_length / 5)
+    rbs.position    = data.median_curve.get(data.median_curve.curve_length / 5) + Eigen::Vector3.new(0, -1, 0)
     rbs.orientation = Eigen::Quaternion.Unit
+    rbs.position = Eigen::Vector3.new(24.9719, 49.806, 0)
+    rbs.orientation = Eigen::Quaternion.from_yaw(-2.01886)
+    puts "start position: #{rbs.position.to_a.inspect}"
     pose_w.write(rbs)
 
-    gui.run(1000) do
-        # if lut = lut_r.read_new
-        #     pp lut
-        # end
+    trajectory = nil
 
+    auto_advance = false
+    play_btn = Qt::PushButton.new("Play")
+    step_btn = Qt::PushButton.new("Step")
+    develop_btn = Qt::PushButton.new("Replay tree development")
+    leaves_btn = Qt::RadioButton.new("Show leaves")
+    root = Qt::Widget.new
+    layout = Qt::VBoxLayout.new(root)
+    layout.add_widget(play_btn)
+    layout.add_widget(step_btn)
+    layout.add_widget(develop_btn)
+    layout.add_widget(leaves_btn)
+    root.show
+
+    play_btn.connect(SIGNAL(:clicked)) do
+        auto_advance = !auto_advance
+        if auto_advance && trajectory
+            advance(rbs, pose_w, trajectory)
+        end
+        if auto_advance
+            play_btn.text = "Stop"
+        else
+            play_btn.text = "Play"
+        end
+    end
+    step_btn.connect(SIGNAL(:clicked)) do
+        if trajectory
+            advance(rbs, pose_w, trajectory)
+        end
+    end
+    max_count = nil
+    develop_btn.connect(SIGNAL(:clicked)) do
+        if max_count
+            develop_btn.setText("Deplay tree development (current=#{max_count})")
+            max_count = nil
+        else
+            max_count = 0
+        end
+    end
+    leaves_btn.connect(SIGNAL(:clicked)) do
+        widget.removeTreeLeaves(!leaves_btn.checked?)
+    end
+
+    path = 0
+    last_debug = nil
+    gui.run(50) do
         if !follower.running?
             puts "follower task terminated with state #{follower.state}"
-            return
+        elsif result = traj_r.read_new
+            d = (result.get(result.end_param) - result.get(result.start_param)).norm()
+            puts "updated trajectory, end_p=#{result.get(result.end_param).to_a.inspect} d=#{d}"
+            trajectory = result
+
+            if auto_advance
+                advance(rbs, pose_w, trajectory)
+            end
         end
 
-        widget.updateSelectedCorridor(data)
-        # puts "do we have a trajectory yet ?"
-        # if result = traj_r.read_new
-        #     p, t = result.get(result.end_param / 10, true)
-        #     rbs.position = p
-        #     pose_w.write(rbs)
-        #     puts "new position: #{p.x} #{p.y} #{p.z}"
-        # end
+        if debug = debug_r.read_new
+            puts "updated horizon display"
+            h0 = debug.horizon[0]
+            h1 = debug.horizon[1]
+            widget.updateHorizon(*(h0.to_a + h1.to_a))
+            last_debug = debug
+        elsif last_debug && max_count
+            max_count += 1
+            if last_debug.tree.nodes.size == max_count
+                max_count = nil
+                widget.setMaxNodeCount(0)
+            else
+                develop_btn.setText("Developing tree, current=#{max_count}")
+                widget.setMaxNodeCount(max_count)
+            end
+        end
     end
 end
 
