@@ -9,10 +9,10 @@
 
 require 'orocos'
 include Orocos
-require 'simlog'
-include Pocosim
+require 'pocolog'
+include Pocolog
 require 'readline'
-require 'simlog/stream_aligner'
+require 'pocolog/stream_aligner'
 require 'eigen'
 
 if !ARGV[0]  then 
@@ -25,23 +25,22 @@ Orocos.initialize
 logreg = Typelib::Registry.new 
 
 # Get the streams we are interested in
-state_log = Logfiles.new File.open("#{ARGV[0]}/xsens_imu.0.log"), Orocos.registry
+state_log = Logfiles.new File.open("#{ARGV[0]}/xsens_imu.0.log"), logreg
 laser_log = Logfiles.new File.open("#{ARGV[0]}/hokuyo.0.log"), logreg
-hbridge_log = Logfiles.new File.open("#{ARGV[0]}/lowlevel.0.log"), logreg
+lowlevel_log = Logfiles.new File.open("#{ARGV[0]}/lowlevel.0.log"), logreg
 
 streams = Array.new
 streams[0]  = state_log.stream("xsens_imu.orientation_samples")
 streams[1]  = laser_log.stream("hokuyo.scans")
-streams[2]  = hbridge_log.stream("hbridge.status")
+streams[2]  = lowlevel_log.stream("odometry.odometry_samples")
 joint = StreamAligner.new(false, *streams)
 
 # setup the environment so that ruby can find the test deployment
 ENV['PKG_CONFIG_PATH'] = "#{File.expand_path("..", File.dirname(__FILE__))}/build:#{ENV['PKG_CONFIG_PATH']}"
 
-Orocos::Process.spawn 'corridorTest', 'lowlevel', 'valgrind'=> false, "wait" => 100 do |cs, lowlevel| 
+Orocos::Process.spawn 'corridorNavigationTest', 'valgrind'=> false, "wait" => 100 do |cn| 
 #STDERR.puts Orocos.registry.to_xml
-    corridor_servoing = cs.task 'corridor_servoing'
-    odometry = lowlevel.task 'odometry'
+    corridor_servoing = cn.task 'corridor_servoing'
     
 #     logger = p.task 'visual_servoing_Logger'
 # 
@@ -50,26 +49,47 @@ Orocos::Process.spawn 'corridorTest', 'lowlevel', 'valgrind'=> false, "wait" => 
 #     logger.configure()
 #     logger.start()
 
-    hbdata = Orocos.registry.get('hbridge/Status').new
-    
-    laserwriter_cs = corridor_servoing.scan_samples.writer(:type => :buffer, :size => 10)
+    laserwriter_cs = corridor_servoing.scan_samples.writer(:type => :buffer, :size => 1000)
     heading_writer_cs = corridor_servoing.heading.writer
-    orientation_writer_od = odometry.orientation_samples.writer(:type => :buffer, :size => 10)
-    hbridge_writer_od = odometry.hbridge_samples.writer(:type => :buffer, :size => 10)
+
+    odometry_writer = corridor_servoing.odometry_samples(:type => :buffer, :size => 1000)
     
-    odometry.odometry_samples.connect_to(corridor_servoing.odometry_samples, :type => :buffer, :size => 50)
+    corridor_servoing.search_horizon = 1.0
+    search_conf = corridor_servoing.search_conf
+    search_conf.stepDistance = 0.1
+#    search_conf.maxTreeSize = 100
+    search_conf.maxSeekSteps = 600
+    search_conf.discountFactor = 1.0
+    search_conf.identityThreshold = search_conf.stepDistance / 4;
+    #this should be sin(angularSamplingMin) * stepDistance = stepDistance / 5
+    search_conf.angularSamplingMin = Math::PI / 60
+    search_conf.angularSamplingMax = Math::PI / 10
+    search_conf.angularSamplingNominalCount = 5
+    corridor_servoing.search_conf = search_conf
     
+    cost_conf = corridor_servoing.cost_conf
+    cost_conf.obstacleSenseRadius = 0.9
+    cost_conf.mainHeadingWeight = 0.0
+    cost_conf.distanceWeight = 0.3
+    cost_conf.turningWeight = 0.5
+    cost_conf.oversamplingWidth = 15.0 / 180.0 * Math::PI
+    cost_conf.speedProfile        = [0.6, 1.0 * (2.0 / Math::PI)] # 60cm/s on a straight line, 10cm/s to turn Math::PI/2 over a meter
+    cost_conf.pointTurnThreshold  = Math::PI / 4
+    cost_conf.pointTurnSpeed      = Math::PI / 10
+    cost_conf.speedAfterPointTurn = 0.01
+    cost_conf.baseTurnCost = 0.0
+    corridor_servoing.cost_conf = cost_conf
+
     corridor_servoing.configure
     corridor_servoing.start
-    
-    odometry.configure
-    odometry.start
     
 #    Readline::readline('Press enter for next sample')
 
     counter = 0;
     stream_idx = nil
 
+    first = 0;
+    
     #grep first imu sample, to get inital heading
     while(stream_idx != 0)
 	step_info = joint.step
@@ -77,36 +97,28 @@ Orocos::Process.spawn 'corridorTest', 'lowlevel', 'valgrind'=> false, "wait" => 
     end
     
     stream_idx, time, data = step_info
-    quat = Eigen::Quaternion.new(data.orientation.re, data.orientation.im[0], data.orientation.im[1], data.orientation.im[2])
-    heading = quat.to_euler(2,1,0).x()
+    quat = data.orientation
+    heading = quat.to_euler(2,1,0).x() +Math::PI / 2.0
 
     heading_writer_cs.write(heading)
     
     while step_info = joint.step
-	if(counter > 100)
+	if(counter > 10 && first > 440)
 	    counter = 0;
 	    Readline::readline('Press enter for next sample')
 	end
 	
 	stream_idx, time, data = step_info
-	#sleep(0.01)
+	sleep(0.001)
 	if(stream_idx == 0)
-	    orientation_writer_od.write(data)
 	end
 	if(stream_idx == 1)
-	    counter = counter +1;
+	    counter = counter +1
+	    first = first + 1
 	    laserwriter_cs.write(data)	    
 	end
 	if(stream_idx == 2)
-	    hbdata.time.seconds = data.time.seconds
-	    hbdata.time.microseconds = data.time.microseconds 
-	    (0..3).each  do|i|
-		hbdata.states[i].current = data.states[i].current
-		hbdata.states[i].position = data.states[i].position
-		hbdata.states[i].positionExtern = data.states[i].positionExtern
-		hbdata.states[i].pwm = data.states[i].pwm
-	    end
-	    hbridge_writer_od.write(hbdata)
+	    odometry_writer.write(data)
 	end
 	
     end
