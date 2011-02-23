@@ -125,7 +125,7 @@ bool ServoingTask::configureHook()
     // setup the aggregator with the timeout value provided by the module
     aggr->setTimeout( base::Time::fromSeconds( _max_delay.value() ) );
 
-    const double buffer_size_factor = 2.0;
+    const double buffer_size_factor = 5.0;
 
     od_idx = aggr->registerStream<base::samples::RigidBodyState>(
 	   boost::bind( &ServoingTask::odometry_callback, this, _1, _2 ),
@@ -152,20 +152,28 @@ bool ServoingTask::configureHook()
 
 void ServoingTask::updateHook()
 {
+    bool keepGoing = true;
     base::samples::LaserScan scan_reading;
-    while( _scan_samples.read(scan_reading) == RTT::NewData )
-    {
-	aggr->push( scan_idx, scan_reading.time, scan_reading );	
-    }
-    
     base::samples::RigidBodyState odometry_reading;
-    while( _odometry_samples.read(odometry_reading) == RTT::NewData )
-    {
-	aggr->push( od_idx, odometry_reading.time, odometry_reading );	
-    }
+    
+    while(keepGoing)
+    {	
+	keepGoing = false;
+	if(_scan_samples.read(scan_reading) == RTT::NewData )
+	{
+	    keepGoing = true;
+	    aggr->push( scan_idx, scan_reading.time, scan_reading );	
+	}
+	
+	if( _odometry_samples.read(odometry_reading) == RTT::NewData )
+	{
+	    keepGoing = true;
+	    aggr->push( od_idx, odometry_reading.time, odometry_reading );	
+	}
 
-    // then call the streams in the relevant order
-    while( aggr->step() );    
+	// then call the streams in the relevant order
+	while( aggr->step() );    
+    }
 }
 
 // void ServoingTask::errorHook()
