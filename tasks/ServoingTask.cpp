@@ -1,8 +1,7 @@
 #include "ServoingTask.hpp"
-#include <corridor_navigation/VFHServoing.hpp>
 #include <vfh_star/VFHStar.h>
-#include <vfh_star/VFH.h>
 #include <asguard/Transformation.hpp>
+#include <vfh_star/VFH.h>
 
 using namespace corridor_navigation;
 using namespace vfh_star;
@@ -17,11 +16,30 @@ ServoingTask::ServoingTask(std::string const& name)
     body2Odo.setIdentity();
     
     globalHeading = 0;
+    
+    gridPos = new envire::FrameNode();
+    env.attachItem(gridPos);
+    
+    const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
+
+    trGrid = new envire::Grid<Traversability>(trGridGMS.getWidth(), trGridGMS.getHeight(), trGridGMS.getGridEntrySize(), trGridGMS.getGridEntrySize());
+    env.attachItem(trGrid);
+    trGrid->setFrameNode(gridPos);
+    
+    envire::Grid<Traversability>::ArrayType &trData = trGrid->getGridData();
+    for(int x = 0; x < trGridGMS.getWidth(); x++) {
+	for(int y = 0; y < trGridGMS.getHeight(); y++) {
+	    trData[x][y] = TRAVERSABLE;
+	}			
+    }		    	
+    
+    vfhServoing = new corridor_navigation::VFHServoing(trGrid);
 }
 
 
 void ServoingTask::odometry_callback(base::Time ts, const base::samples::RigidBodyState& odometry_reading)
 {
+//     std::cout << "Body2Odo " << odometry_reading.time.toMilliseconds() << " " << odometry_reading.position.transpose() << std::endl;
     gotOdometry = true;
     body2Odo = odometry_reading;
 }
@@ -34,43 +52,41 @@ void ServoingTask::scan_callback(base::Time ts, const base::samples::LaserScan& 
     if(_heading.read(globalHeading) == RTT::NoData)
 	return;
 
+//     std::cout << "Scan Time Callback " << ts.toMilliseconds() << " " << body2Odo.translation().transpose() << std::endl;
     bool gotNewMap = mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);
 
+    
     if(gotNewMap) {
 	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
 
-	//convert to envire::Grid<Traversability>
-	envire::Environment env;
-	envire::FrameNode gridPos;
+	vfhServoing->clearDebugData();
+	
+	//set correct position of grid in envire
 	Transform3d tr;
 	tr.setIdentity();
 	tr.translation() = trGridGMS.getGridPosition();
-	gridPos.setTransform(tr);
-	env.attachItem(&gridPos);
-	envire::Grid<Traversability> trGrid(trGridGMS.getWidth(), trGridGMS.getHeight(), trGridGMS.getGridEntrySize(), trGridGMS.getGridEntrySize());
-	envire::Grid<Traversability>::ArrayType &trData = trGrid.getGridData();
-	env.attachItem(&trGrid);
-	trGrid.setFrameNode(&gridPos);
+	gridPos->setTransform(tr);
+	
+	//copy data to envire grid
+	envire::Grid<Traversability>::ArrayType &trData = trGrid->getGridData();
 	for(int x = 0; x < trGridGMS.getWidth(); x++) {
 	    for(int y = 0; y < trGridGMS.getHeight(); y++) {
 		trData[x][y] = trGridGMS.getEntry(x, y);
 	    }			
-	}		    
-
-        corridor_navigation::VFHServoing vfh(&trGrid);
-        vfh.setCostConf(_cost_conf.get());
-        vfh.setSearchConf(_search_conf.get());
+	}		    	
+	
 	
 	base::Time start = base::Time::now();
-        std::vector<base::Waypoint> waypoints =
-            vfh.getWaypoints(base::Pose(body2Odo), globalHeading, _search_horizon.get());
+	std::vector<base::Waypoint> waypoints;
+// 	try {
+	    waypoints = vfhServoing->getWaypoints(base::Pose(body2Odo), globalHeading, _search_horizon.get());
+/*	} catch(...)
+	{
+	    std::cerr << "Unable to get Trajectory" << std::endl;
+	}*/
 	base::Time end = base::Time::now();
 	_trajectory.write(TreeSearch::waypointsToSpline(waypoints));
 	std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
-
-	//detach items, to avoid invalid free when env get's destroyed
-	env.detachItem(&trGrid);
-	env.detachItem(&gridPos);
 	
 	//write out debug output
         if (_gridDump.connected())
@@ -81,9 +97,9 @@ void ServoingTask::scan_callback(base::Time ts, const base::samples::LaserScan& 
         }
 
         if (_vfhDebug.connected())
-            _vfhDebug.write(vfh.getVFHStarDebugData(waypoints));
+            _vfhDebug.write(vfhServoing->getVFHStarDebugData(waypoints));
         if (_debugVfhTree.connected())
-            _debugVfhTree.write(vfh.getTree());
+            _debugVfhTree.write(vfhServoing->getTree());
     }
 }
 
@@ -95,6 +111,17 @@ void ServoingTask::scan_callback(base::Time ts, const base::samples::LaserScan& 
 
 bool ServoingTask::configureHook()
 {    
+    vfhServoing->setCostConf(_cost_conf.get());
+    vfhServoing->setSearchConf(_search_conf.get());
+    
+    //maximum distance of the horizon in the map
+    double boundarySize = _search_horizon.get() + _cost_conf.get().obstacleSenseRadius + _search_conf.get().stepDistance;
+    
+    //add a third, as a rule of thumb to avoid problems
+    boundarySize *= 1.3;
+    
+    mapGenerator.setBoundarySize(boundarySize);
+    
     // setup the aggregator with the timeout value provided by the module
     aggr->setTimeout( base::Time::fromSeconds( _max_delay.value() ) );
 

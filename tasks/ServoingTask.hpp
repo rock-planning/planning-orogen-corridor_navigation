@@ -2,6 +2,7 @@
 #define CORRIDOR_NAVIGATION_TASK_TASK_HPP
 
 #include "corridor_navigation/ServoingTaskBase.hpp"
+#include <corridor_navigation/VFHServoing.hpp>
 #include <StreamAligner.hpp>
 #include <vfh_star/TraversabilityMapGenerator.h>
 #include <Eigen/Core>
@@ -43,6 +44,13 @@ namespace corridor_navigation {
 	/** heading, where the robot should drive */
 	double globalHeading;
 
+	envire::Environment env;
+
+	envire::FrameNode *gridPos;
+	envire::Grid<vfh_star::Traversability> *trGrid;
+	
+	corridor_navigation::VFHServoing *vfhServoing;
+    
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");
