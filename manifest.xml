@@ -22,5 +22,6 @@
 
   <depend package="tools/logger"/>
   <depend package="orogen"/>
+  <tags>needs_opt</tags>
 </package>
 
