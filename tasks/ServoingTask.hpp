@@ -54,6 +54,7 @@ namespace corridor_navigation {
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");
+        ~ServoingTask();
 
         /** This hook is called by Orocos when the state machine transitions
          * from PreOperational to Stopped. If it returns false, then the

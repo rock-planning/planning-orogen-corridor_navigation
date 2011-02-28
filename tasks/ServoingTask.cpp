@@ -36,6 +36,8 @@ ServoingTask::ServoingTask(std::string const& name)
     vfhServoing = new corridor_navigation::VFHServoing(trGrid);
 }
 
+ServoingTask::~ServoingTask() {}
+
 
 void ServoingTask::odometry_callback(base::Time ts, const base::samples::RigidBodyState& odometry_reading)
 {
