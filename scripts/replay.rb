@@ -69,14 +69,11 @@ Orocos::Process.spawn 'corridorNavigationTest', 'valgrind'=> false, "wait" => 10
     
     cost_conf = corridor_servoing.cost_conf
     cost_conf.obstacleSenseRadius = 0.9
-    cost_conf.mainHeadingWeight = 0.0
-    cost_conf.distanceWeight = 0.3
-    cost_conf.turningWeight = 0.5
     cost_conf.oversamplingWidth = 15.0 / 180.0 * Math::PI
     cost_conf.speedProfile        = [0.6, 1.0 * (2.0 / Math::PI)] # 60cm/s on a straight line, 10cm/s to turn Math::PI/2 over a meter
     cost_conf.pointTurnThreshold  = Math::PI / 4
-    cost_conf.pointTurnSpeed      = Math::PI / 10
-    cost_conf.speedAfterPointTurn = 0.01
+    cost_conf.pointTurnSpeed      = Math::PI / 4
+    cost_conf.speedAfterPointTurn = 0.6
     cost_conf.baseTurnCost = 0.0
     corridor_servoing.cost_conf = cost_conf
 
