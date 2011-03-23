@@ -43,6 +43,8 @@ namespace corridor_navigation {
 	
 	/** heading, where the robot should drive */
 	double globalHeading;
+	
+	bool gotNewMap;
 
 	envire::Environment env;
 

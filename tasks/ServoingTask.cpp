@@ -34,6 +34,8 @@ ServoingTask::ServoingTask(std::string const& name)
     }		    	
     
     vfhServoing = new corridor_navigation::VFHServoing(trGrid);
+    
+    gotNewMap = false;
 }
 
 ServoingTask::~ServoingTask() {}
@@ -55,54 +57,7 @@ void ServoingTask::scan_callback(base::Time ts, const base::samples::LaserScan& 
 	return;
 
 //     std::cout << "Scan Time Callback " << ts.toMilliseconds() << " " << body2Odo.translation().transpose() << std::endl;
-    bool gotNewMap = mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);
-
-    
-    if(gotNewMap) {
-	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
-
-	vfhServoing->clearDebugData();
-	
-	//set correct position of grid in envire
-	Transform3d tr;
-	tr.setIdentity();
-	tr.translation() = trGridGMS.getGridPosition();
-	gridPos->setTransform(tr);
-	
-	//copy data to envire grid
-	envire::Grid<Traversability>::ArrayType &trData = trGrid->getGridData();
-	for(int x = 0; x < trGridGMS.getWidth(); x++) {
-	    for(int y = 0; y < trGridGMS.getHeight(); y++) {
-		trData[x][y] = trGridGMS.getEntry(x, y);
-	    }			
-	}		    	
-	
-	
-	base::Time start = base::Time::now();
-	std::vector<base::Waypoint> waypoints;
-// 	try {
-	    waypoints = vfhServoing->getWaypoints(base::Pose(body2Odo), globalHeading, _search_horizon.get());
-/*	} catch(...)
-	{
-	    std::cerr << "Unable to get Trajectory" << std::endl;
-	}*/
-	base::Time end = base::Time::now();
-	_trajectory.write(TreeSearch::waypointsToSpline(waypoints));
-	std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
-	
-	//write out debug output
-        if (_gridDump.connected())
-        {
-            vfh_star::GridDump gd;
-            mapGenerator.getGridDump(gd);
-            _gridDump.write(gd);
-        }
-
-        if (_vfhDebug.connected())
-            _vfhDebug.write(vfhServoing->getVFHStarDebugData(waypoints));
-        if (_debugVfhTree.connected())
-            _debugVfhTree.write(vfhServoing->getTree());
-    }
+    gotNewMap |= mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);    
 }
 
 
@@ -158,6 +113,7 @@ void ServoingTask::updateHook()
     base::samples::LaserScan scan_reading;
     base::samples::RigidBodyState odometry_reading;
     
+    //replay all data
     while(keepGoing)
     {	
 	keepGoing = false;
@@ -175,6 +131,55 @@ void ServoingTask::updateHook()
 
 	// then call the streams in the relevant order
 	while( aggr->step() );    
+    }
+    
+    //if we got a new map replan
+    if(gotNewMap) {
+	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
+
+	vfhServoing->clearDebugData();
+	
+	//set correct position of grid in envire
+	Transform3d tr;
+	tr.setIdentity();
+	tr.translation() = trGridGMS.getGridPosition();
+	gridPos->setTransform(tr);
+	
+	//copy data to envire grid
+	envire::Grid<Traversability>::ArrayType &trData = trGrid->getGridData();
+	for(int x = 0; x < trGridGMS.getWidth(); x++) {
+	    for(int y = 0; y < trGridGMS.getHeight(); y++) {
+		trData[x][y] = trGridGMS.getEntry(x, y);
+	    }			
+	}		    	
+	
+	
+	base::Time start = base::Time::now();
+	std::vector<base::Waypoint> waypoints;
+// 	try {
+	    waypoints = vfhServoing->getWaypoints(base::Pose(body2Odo), globalHeading, _search_horizon.get());
+/*	} catch(...)
+	{
+	    std::cerr << "Unable to get Trajectory" << std::endl;
+	}*/
+	base::Time end = base::Time::now();
+	_trajectory.write(TreeSearch::waypointsToSpline(waypoints));
+	std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
+	
+	//write out debug output
+        if (_gridDump.connected())
+        {
+            vfh_star::GridDump gd;
+            mapGenerator.getGridDump(gd);
+            _gridDump.write(gd);
+        }
+
+        if (_vfhDebug.connected())
+            _vfhDebug.write(vfhServoing->getVFHStarDebugData(waypoints));
+        if (_debugVfhTree.connected())
+            _debugVfhTree.write(vfhServoing->getTree());
+	
+	gotNewMap = false;
     }
 }
 
