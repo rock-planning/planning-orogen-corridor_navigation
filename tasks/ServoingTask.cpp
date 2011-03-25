@@ -82,12 +82,37 @@ bool ServoingTask::configureHook()
 
     asguard::Transformation asguardConf;
     asguard::Transformation tf;
+
+    base::samples::RigidBodyState lowerDyn2Head;
+    lowerDyn2Head.sourceFrame = "lower_dynamixel";
+    lowerDyn2Head.targetFrame = "head";
+    lowerDyn2Head.setTransform(tf.lowerDynamixel2Head);
+    transformer.pushStaticTransformation(lowerDyn2Head);
+
+    base::samples::RigidBodyState tiltHead2UpperDyn;
+    tiltHead2UpperDyn.sourceFrame = "tilt_head";
+    tiltHead2UpperDyn.targetFrame = "upper_dynamixel";
+    tiltHead2UpperDyn.setTransform(tf.tiltHead2UpperDynamixel);
+    transformer.pushStaticTransformation(tiltHead2UpperDyn);
     
-    base::samples::RigidBodyState ls2Body;
-    ls2Body.sourceFrame = "laser";
-    ls2Body.targetFrame = "body";
-    ls2Body.setTransform(tf.laser2Body);
-    transformer.pushStaticTransformation(ls2Body);    
+    base::samples::RigidBodyState laser2TiltHead;
+    laser2TiltHead.sourceFrame = "laser";
+    laser2TiltHead.targetFrame = "tilt_head";
+    laser2TiltHead.setTransform(tf.laser2TiltHead);
+    transformer.pushStaticTransformation(laser2TiltHead);
+    
+    base::samples::RigidBodyState head2Body;
+    head2Body.sourceFrame = "head";
+    head2Body.targetFrame = "body";
+    head2Body.setTransform(tf.head2Body);
+    transformer.pushStaticTransformation(head2Body);    
+
+    //static case
+    base::samples::RigidBodyState lowerDyn2UpperDyn;
+    lowerDyn2UpperDyn.sourceFrame = "lower_dynamixel";
+    lowerDyn2UpperDyn.targetFrame = "upper_dynamixel";
+    lowerDyn2UpperDyn.setTransform(Transform3d(Transform3d::Identity()));
+    transformer.pushStaticTransformation(lowerDyn2UpperDyn);    
 
     return ServoingTaskBase::configureHook();
 }
