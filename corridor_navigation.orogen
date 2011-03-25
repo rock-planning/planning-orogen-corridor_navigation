@@ -7,7 +7,6 @@ using_library 'corridor_navigation'
 import_types_from "base"
 import_types_from "corridor_planner"
 
-
 import_types_from "vfh_star/Types.h"
 import_types_from "vfh_star/TreeSearch.h"
 import_types_from "vfh_star/DebugTypes.h"
@@ -43,16 +42,16 @@ task_context "ServoingTask" do
         doc 'the resulting internal search tree'
 
     ##########################
-    # aggregator parameters
+    # transformer parameters
     ##########################
-    property('scan_period', 'double', 0.025).
-	doc 'Time in s between laser scan readings'
 
-    property('odometry_period', 'double', 0.01).
-	doc 'Time in s between odometry readings'
+    transformer do
+	transformation("body", "odometry")
+	transformation("laser", "body")
+	align_port('scan_samples', 0.025)
 
-    property('max_delay', 'double', 0.1).
-	doc 'Time in s the map generator will wait for expected readings.'
+	max_latency(0.1)
+    end
 
     property('search_conf', '/vfh_star/TreeSearchConf').
         doc('Parametrization of the search')

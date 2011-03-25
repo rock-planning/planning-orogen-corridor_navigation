@@ -19,6 +19,7 @@
   <depend package="slam/envire"/>
   <depend package="base/orogen/types"/>
   <depend package="drivers/aggregator"/>
+  <depend package="drivers/transformer"/>
 
   <depend package="tools/logger"/>
   <depend package="orogen"/>

@@ -16,30 +16,13 @@ namespace corridor_navigation {
 	 * Odometry and laserscans */
 	vfh_star::TraversabilityMapGenerator mapGenerator;
 	
-	/** index for the odometry aggregator channel */
-	int od_idx;
-    
-	/** index for the scan match aggregator channel */
-	int scan_idx;
-	
-	/** instance of the aggregator which aligns the readings in time */
-	aggregator::StreamAligner *aggr;
-	
 	/** callback to receive laser scanner readings*/
 	void scan_callback( base::Time ts, const base::samples::LaserScan& scan_reading );
 
-	/** callback to receive odometry readings from aggregator */
-	void odometry_callback( base::Time ts, const base::samples::RigidBodyState& odometry_reading );
+	virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
 	
-	/** Transformation from robot body to odmetry frame */
+	///Last transformation from body to odometry
 	Eigen::Transform3d body2Odo;
-
-	/** Transformation from laser to robot body frame 
-	 *  Note, later on this will get dynamic */
-	Eigen::Transform3d laser2Body;
-	
-	/** status variable, that indicates, if an odometry reading was received */
-	bool gotOdometry;
 	
 	/** heading, where the robot should drive */
 	double globalHeading;

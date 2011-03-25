@@ -10,11 +10,6 @@ using namespace Eigen;
 ServoingTask::ServoingTask(std::string const& name)
     : ServoingTaskBase(name)
 {
-    aggr = new aggregator::StreamAligner();    
-    asguard::Transformation asguardConf;
-    laser2Body = asguardConf.laser2Body;
-    body2Odo.setIdentity();
-    
     globalHeading = 0;
     
     gridPos = new envire::FrameNode();
@@ -40,23 +35,28 @@ ServoingTask::ServoingTask(std::string const& name)
 
 ServoingTask::~ServoingTask() {}
 
-
-void ServoingTask::odometry_callback(base::Time ts, const base::samples::RigidBodyState& odometry_reading)
+void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
-//     std::cout << "Body2Odo " << odometry_reading.time.toMilliseconds() << " " << odometry_reading.position.transpose() << std::endl;
-    gotOdometry = true;
-    body2Odo = odometry_reading;
-}
-
-void ServoingTask::scan_callback(base::Time ts, const base::samples::LaserScan& scan_reading)
-{
-    if(!gotOdometry)
-	return;
-
     if(_heading.read(globalHeading) == RTT::NoData)
+    {
+	std::cout << "No Heading" << std::endl;
 	return;
+    }
+    
+    Eigen::Transform3d laser2Body;
+    
+    if(!_laser2body.get(ts, laser2Body, true))
+    {
+	std::cout << "No laser2Body" << std::endl;
+	return;
+    }
+    
+    if(!_body2odometry.get(ts, body2Odo, true))
+    {
+	std::cout << "No body2Odo" << std::endl;
+	return;
+    }
 
-//     std::cout << "Scan Time Callback " << ts.toMilliseconds() << " " << body2Odo.translation().transpose() << std::endl;
     gotNewMap |= mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);    
 }
 
@@ -79,24 +79,17 @@ bool ServoingTask::configureHook()
     
     mapGenerator.setBoundarySize(boundarySize);
     
-    // setup the aggregator with the timeout value provided by the module
-    aggr->setTimeout( base::Time::fromSeconds( _max_delay.value() ) );
 
-    const double buffer_size_factor = 5.0;
-
-    od_idx = aggr->registerStream<base::samples::RigidBodyState>(
-	   boost::bind( &ServoingTask::odometry_callback, this, _1, _2 ),
-	   buffer_size_factor* ceil( _max_delay.value()/_odometry_period.value() ),
-	   base::Time::fromSeconds( _odometry_period.value() ) );
+    asguard::Transformation asguardConf;
+    asguard::Transformation tf;
     
-    scan_idx = aggr->registerStream<base::samples::LaserScan>(
-	   boost::bind( &ServoingTask::scan_callback, this, _1, _2 ),
-	   buffer_size_factor* ceil( _max_delay.value()/_scan_period.value() ),
-	   base::Time::fromSeconds( _scan_period.value() ) );
+    base::samples::RigidBodyState ls2Body;
+    ls2Body.sourceFrame = "laser";
+    ls2Body.targetFrame = "body";
+    ls2Body.setTransform(tf.laser2Body);
+    transformer.pushStaticTransformation(ls2Body);    
 
-    gotOdometry = false;
-    
-    return true;
+    return ServoingTaskBase::configureHook();
 }
 
 // bool ServoingTask::startHook()
@@ -109,29 +102,13 @@ bool ServoingTask::configureHook()
 
 void ServoingTask::updateHook()
 {
-    bool keepGoing = true;
-    base::samples::LaserScan scan_reading;
     base::samples::RigidBodyState odometry_reading;
-    
-    //replay all data
-    while(keepGoing)
-    {	
-	keepGoing = false;
-	if(_scan_samples.read(scan_reading) == RTT::NewData )
-	{
-	    keepGoing = true;
-	    aggr->push( scan_idx, scan_reading.time, scan_reading );	
-	}
-	
-	if( _odometry_samples.read(odometry_reading) == RTT::NewData )
-	{
-	    keepGoing = true;
-	    aggr->push( od_idx, odometry_reading.time, odometry_reading );	
-	}
-
-	// then call the streams in the relevant order
-	while( aggr->step() );    
+    while( _odometry_samples.read(odometry_reading, false) == RTT::NewData )
+    {
+	transformer.pushDynamicTransformation( odometry_reading );	
     }
+    
+    ServoingTaskBase::updateHook();
     
     //if we got a new map replan
     if(gotNewMap) {
