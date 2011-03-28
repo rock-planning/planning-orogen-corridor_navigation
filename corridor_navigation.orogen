@@ -22,6 +22,10 @@ task_context "ServoingTask" do
 	needs_reliable_connection.
         doc "LaserScann"
 
+    input_port('dynamixel_samples', '/base/samples/RigidBodyState').
+	needs_reliable_connection.
+	doc 'timestamped oodometry samples'
+
     input_port('odometry_samples', '/base/samples/RigidBodyState').
 	needs_reliable_connection.
 	doc 'timestamped oodometry samples'

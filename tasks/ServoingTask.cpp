@@ -108,11 +108,11 @@ bool ServoingTask::configureHook()
     transformer.pushStaticTransformation(head2Body);    
 
     //static case
-    base::samples::RigidBodyState lowerDyn2UpperDyn;
+    /*    base::samples::RigidBodyState lowerDyn2UpperDyn;
     lowerDyn2UpperDyn.sourceFrame = "lower_dynamixel";
     lowerDyn2UpperDyn.targetFrame = "upper_dynamixel";
     lowerDyn2UpperDyn.setTransform(Transform3d(Transform3d::Identity()));
-    transformer.pushStaticTransformation(lowerDyn2UpperDyn);    
+    transformer.pushStaticTransformation(lowerDyn2UpperDyn);    */
 
     return ServoingTaskBase::configureHook();
 }
@@ -131,6 +131,12 @@ void ServoingTask::updateHook()
     while( _odometry_samples.read(odometry_reading, false) == RTT::NewData )
     {
 	transformer.pushDynamicTransformation( odometry_reading );	
+    }
+
+    base::samples::RigidBodyState dynamixel_reading;
+    while( _dynamixel_samples.read(dynamixel_reading, false) == RTT::NewData )
+    {
+	transformer.pushDynamicTransformation( dynamixel_reading );	
     }
     
     ServoingTaskBase::updateHook();
