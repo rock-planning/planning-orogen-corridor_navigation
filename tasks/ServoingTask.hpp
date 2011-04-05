@@ -28,6 +28,8 @@ namespace corridor_navigation {
 	double globalHeading;
 	
 	bool gotNewMap;
+	
+	bool afterConfigure;
 
 	envire::Environment env;
 

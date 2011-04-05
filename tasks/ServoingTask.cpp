@@ -21,13 +21,6 @@ ServoingTask::ServoingTask(std::string const& name)
     env.attachItem(trGrid);
     trGrid->setFrameNode(gridPos);
     
-    envire::Grid<Traversability>::ArrayType &trData = trGrid->getGridData();
-    for(int x = 0; x < trGridGMS.getWidth(); x++) {
-	for(int y = 0; y < trGridGMS.getHeight(); y++) {
-	    trData[x][y] = TRAVERSABLE;
-	}			
-    }		    	
-    
     vfhServoing = new corridor_navigation::VFHServoing(trGrid);
     
     gotNewMap = false;
@@ -114,6 +107,9 @@ bool ServoingTask::configureHook()
     lowerDyn2UpperDyn.setTransform(Transform3d(Transform3d::Identity()));
     transformer.pushStaticTransformation(lowerDyn2UpperDyn);    */
 
+    gotNewMap = false;
+    afterConfigure = true;
+    
     return ServoingTaskBase::configureHook();
 }
 
@@ -143,6 +139,19 @@ void ServoingTask::updateHook()
     
     //if we got a new map replan
     if(gotNewMap) {
+	const base::Pose curPose(body2Odo);
+	const double nearRadius =  _search_conf.get().robotWidth / 2.0 + _search_conf.get().stepDistance * 2.0;
+	
+	if(afterConfigure)
+	{
+	    mapGenerator.markUnknownInRadiusAsTraversable(curPose, nearRadius);
+	    afterConfigure = false;
+	} 
+	else
+	{
+	    mapGenerator.markUnknownInRadiusAsObstacle(curPose, nearRadius);
+	}
+	
 	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
 
 	vfhServoing->clearDebugData();
@@ -158,14 +167,13 @@ void ServoingTask::updateHook()
 	for(int x = 0; x < trGridGMS.getWidth(); x++) {
 	    for(int y = 0; y < trGridGMS.getHeight(); y++) {
 		trData[x][y] = trGridGMS.getEntry(x, y);
-	    }			
-	}		    	
-	
+	    }
+	}
 	
 	base::Time start = base::Time::now();
 	std::vector<base::Waypoint> waypoints;
 // 	try {
-	    waypoints = vfhServoing->getWaypoints(base::Pose(body2Odo), globalHeading, _search_horizon.get());
+	    waypoints = vfhServoing->getWaypoints(curPose, globalHeading, _search_horizon.get());
 /*	} catch(...)
 	{
 	    std::cerr << "Unable to get Trajectory" << std::endl;
