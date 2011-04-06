@@ -139,12 +139,17 @@ void ServoingTask::updateHook()
     
     //if we got a new map replan
     if(gotNewMap) {
+	
+	TreeSearchConf search_conf(_search_conf.get());
+	
 	const base::Pose curPose(body2Odo);
 	const double nearRadius =  _search_conf.get().robotWidth / 2.0 + _search_conf.get().stepDistance * 2.0;
 	
 	if(afterConfigure)
 	{
-	    mapGenerator.markUnknownInRadiusAsTraversable(curPose, nearRadius);
+	    double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+	    //TODO calulate distance to laser beam inpackt based on laser angle
+	    mapGenerator.markUnknownInRectangeAsTraversable(curPose, val, val, 0.5);
 	    afterConfigure = false;
 	} 
 	else
