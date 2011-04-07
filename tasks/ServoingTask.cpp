@@ -71,7 +71,7 @@ bool ServoingTask::configureHook()
     boundarySize *= 1.3;
     
     mapGenerator.setBoundarySize(boundarySize);
-    
+    mapGenerator.setMaxStepSize(_search_conf.get().maxStepSize);
 
     asguard::Transformation asguardConf;
     asguard::Transformation tf;
