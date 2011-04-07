@@ -21,8 +21,8 @@ ServoingTask::ServoingTask(std::string const& name)
     env.attachItem(trGrid);
     trGrid->setFrameNode(gridPos);
     
-    vfhServoing = new corridor_navigation::VFHServoing(trGrid);
-    
+    vfhServoing = new corridor_navigation::VFHServoing();
+    vfhServoing->setNewTraversabilityGrid(trGrid);
     gotNewMap = false;
 }
 
@@ -50,7 +50,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 	return;
     }
 
-    gotNewMap |= mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);    
+    gotNewMap |= mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);
 }
 
 
@@ -139,6 +139,8 @@ void ServoingTask::updateHook()
     
     //if we got a new map replan
     if(gotNewMap) {
+	//notify the servoing that there is a new map
+	vfhServoing->setNewTraversabilityGrid(trGrid);
 	
 	TreeSearchConf search_conf(_search_conf.get());
 	
