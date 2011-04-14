@@ -152,14 +152,11 @@ void ServoingTask::updateHook()
 	    double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
 	    //TODO calulate distance to laser beam inpackt based on laser angle
 	    mapGenerator.markUnknownInRectangeAsTraversable(curPose, val, val, 0.5);
-	    mapGenerator.computeNewMap();
 	    afterConfigure = false;
 	} 
-	else
-	{
-	    mapGenerator.markUnknownInRadiusAsObstacle(curPose, nearRadius);
-	    mapGenerator.computeNewMap();
-	}
+
+	mapGenerator.computeNewMap();
+	mapGenerator.markUnknownInRadiusAsObstacle(curPose, nearRadius);
 	
 	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
 
