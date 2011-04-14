@@ -145,7 +145,7 @@ void ServoingTask::updateHook()
 	TreeSearchConf search_conf(_search_conf.get());
 	
 	const base::Pose curPose(body2Odo);
-	const double nearRadius =  _search_conf.get().robotWidth / 2.0 + _search_conf.get().stepDistance * 2.0;
+	const double nearRadius =  _search_conf.get().robotWidth / 2.0 + _search_conf.get().stepDistance * 1.3;
 	
 	if(afterConfigure)
 	{
