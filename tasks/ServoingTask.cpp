@@ -145,8 +145,6 @@ void ServoingTask::updateHook()
 	TreeSearchConf search_conf(_search_conf.get());
 	
 	const base::Pose curPose(body2Odo);
-	const double nearRadius =  _search_conf.get().robotWidth / 2.0 + _search_conf.get().stepDistance * 1.3;
-	
 	if(afterConfigure)
 	{
 	    double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
@@ -156,7 +154,9 @@ void ServoingTask::updateHook()
 	} 
 
 	mapGenerator.computeNewMap();
-	mapGenerator.markUnknownInRadiusAsObstacle(curPose, nearRadius);
+	const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
+	//mark all unknown beside the robot as obstacle, but none in front of the robot
+	mapGenerator.markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
 	
 	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
 
