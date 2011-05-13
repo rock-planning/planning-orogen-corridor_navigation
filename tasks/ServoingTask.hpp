@@ -30,7 +30,7 @@ namespace corridor_navigation {
 	virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
 	
 	///Last transformation from body to odometry
-	Eigen::Transform3d body2Odo;
+	Eigen::Affine3d body2Odo;
 	
 	/** heading, where the robot should drive */
 	double globalHeading;

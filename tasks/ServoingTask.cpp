@@ -56,7 +56,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 	return;
     }
     
-    Eigen::Transform3d laser2Body;
+    Eigen::Affine3d laser2Body;
     
     if(!_laser2body.get(ts, laser2Body, true))
     {
@@ -124,7 +124,7 @@ bool ServoingTask::configureHook()
     /*    base::samples::RigidBodyState lowerDyn2UpperDyn;
     lowerDyn2UpperDyn.sourceFrame = "lower_dynamixel";
     lowerDyn2UpperDyn.targetFrame = "upper_dynamixel";
-    lowerDyn2UpperDyn.setTransform(Transform3d(Transform3d::Identity()));
+    lowerDyn2UpperDyn.setTransform(Affine3d(Affine3d::Identity()));
     transformer.pushStaticTransformation(lowerDyn2UpperDyn);    */
 
     gotNewMap = false;
@@ -268,7 +268,7 @@ void ServoingTask::updateHook()
 	vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
 	
 	//set correct position of grid in envire
-	Transform3d tr;
+	Affine3d tr;
 	tr.setIdentity();
 	tr.translation() = trGridGMS.getGridPosition();
 	gridPos->setTransform(tr);
