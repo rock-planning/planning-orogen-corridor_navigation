@@ -21,16 +21,28 @@ ServoingTask::ServoingTask(std::string const& name)
     env.attachItem(trGrid);
     trGrid->setFrameNode(gridPos);
     
+    envire::Grid<Traversability>::ArrayType &gridData = trGrid->getGridData();
+
+    for(int x = 0;x < trGrid->getWidth(); x++)
+    {
+	for(int y = 0;y < trGrid->getHeight(); y++)
+	{
+	    gridData[x][y] = UNCLASSIFIED;
+	}
+    }
+    
     vfhServoing = new corridor_navigation::VFHServoing();
     vfhServoing->setNewTraversabilityGrid(trGrid);
     gotNewMap = false;
+    
+    body2Odo = Transform3d::Identity();
 }
 
 ServoingTask::~ServoingTask() {}
 
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
-    if(_heading.read(globalHeading) == RTT::NoData)
+    if(_heading.readNewest(globalHeading) == RTT::NoData)
     {
 	std::cout << "No Heading" << std::endl;
 	return;
