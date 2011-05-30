@@ -36,6 +36,9 @@ ServoingTask::ServoingTask(std::string const& name)
     gotNewMap = false;
     
     body2Odo = Transform3d::Identity();
+    
+    dynamixelMin = std::numeric_limits< double >::max();
+    dynamixelMax = -std::numeric_limits< double >::max();
 }
 
 ServoingTask::~ServoingTask() {}
@@ -145,6 +148,28 @@ void ServoingTask::updateHook()
     while( _dynamixel_samples.read(dynamixel_reading, false) == RTT::NewData )
     {
 	transformer.pushDynamicTransformation( dynamixel_reading );	
+
+	Vector3d angles = dynamixel_reading.orientation.toRotationMatrix().eulerAngles(2,1,0);
+	dynamixelMin = std::min(dynamixelMin, angles[2]);
+	dynamixelMax = std::max(dynamixelMax, angles[2]);
+
+	dynamixelAngle = angles[2];
+
+	//track sweep status
+	switch (sweepStatus)
+	{
+	    case SWEEP_DONE:
+	    case SWEEP_UNTRACKED:
+		break;
+	    case WAITING_FOR_START:
+		if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
+		    sweepStatus = SWEEP_STARTED;
+		break;
+	    case SWEEP_STARTED:
+		if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
+		    sweepStatus = SWEEP_DONE;
+		break;
+	}
     }
     
     ServoingTaskBase::updateHook();
@@ -174,6 +199,11 @@ void ServoingTask::updateHook()
 
 	vfhServoing->clearDebugData();
 	
+	base::Pose frontArea(curPose);
+	frontArea.position += curPose.orientation * Vector3d(0, 0.5, 0);
+	
+	vfh_star::ConsistencyStats frontArealStats = mapGenerator.checkMapConsistencyInArea(frontArea, 0.5, 0.5);
+	
 	//set correct position of grid in envire
 	Transform3d tr;
 	tr.setIdentity();
@@ -188,17 +218,29 @@ void ServoingTask::updateHook()
 	    }
 	}
 	
-	base::Time start = base::Time::now();
-	std::vector<base::Waypoint> waypoints;
-// 	try {
-	    waypoints = vfhServoing->getWaypoints(curPose, globalHeading, _search_horizon.get());
-/*	} catch(...)
+	
+	//only go onto terrain we know something about
+	//or if we can not gather any more information
+	if(frontArealStats.averageCertainty > 0.5 || sweepStatus == SWEEP_DONE)
 	{
-	    std::cerr << "Unable to get Trajectory" << std::endl;
-	}*/
-	base::Time end = base::Time::now();
-	_trajectory.write(TreeSearch::waypointsToSpline(waypoints));
-	std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
+	    if(sweepStatus == SWEEP_DONE)
+		sweepStatus = SWEEP_UNTRACKED;
+
+	    base::Time start = base::Time::now();
+	    
+	    std::vector<base::Waypoint> waypoints;
+	    waypoints = vfhServoing->getWaypoints(curPose, globalHeading, _search_horizon.get());
+	    
+	    base::Time end = base::Time::now();
+
+	    _trajectory.write(TreeSearch::waypointsToSpline(waypoints));
+	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
+	} else {	    
+	    //we need to wait a full sweep
+	    if(sweepStatus == SWEEP_UNTRACKED)
+		sweepStatus = WAITING_FOR_START;
+	}
+	
 	
 	//write out debug output
         if (_gridDump.connected())

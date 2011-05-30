@@ -8,6 +8,14 @@
 #include <Eigen/Core>
 
 namespace corridor_navigation {
+    
+    enum SweepStatus {
+	WAITING_FOR_START,
+	SWEEP_STARTED,
+	SWEEP_DONE,
+	SWEEP_UNTRACKED,
+    };
+    
     class ServoingTask : public ServoingTaskBase
     {
 	friend class ServoingTaskBase;
@@ -38,6 +46,12 @@ namespace corridor_navigation {
 	
 	corridor_navigation::VFHServoing *vfhServoing;
     
+	double dynamixelMin;
+	double dynamixelMax;
+	SweepStatus sweepStatus;
+	
+	double dynamixelAngle;
+	
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");
