@@ -227,14 +227,19 @@ void ServoingTask::updateHook()
 		sweepStatus = SWEEP_UNTRACKED;
 
 	    base::Time start = base::Time::now();
-	    
-	    std::vector<base::Waypoint> waypoints;
+
+	    std::vector<base::Waypoint> waypoints;	    
 	    waypoints = vfhServoing->getWaypoints(curPose, globalHeading, _search_horizon.get());
 	    
 	    base::Time end = base::Time::now();
 
 	    _trajectory.write(TreeSearch::waypointsToSpline(waypoints));
 	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
+
+	    if (_vfhDebug.connected())
+		_vfhDebug.write(vfhServoing->getVFHStarDebugData(waypoints));
+	    if (_debugVfhTree.connected())
+		_debugVfhTree.write(vfhServoing->getTree());
 	} else {	    
 	    //we need to wait a full sweep
 	    if(sweepStatus == SWEEP_UNTRACKED)
@@ -250,10 +255,6 @@ void ServoingTask::updateHook()
             _gridDump.write(gd);
         }
 
-        if (_vfhDebug.connected())
-            _vfhDebug.write(vfhServoing->getVFHStarDebugData(waypoints));
-        if (_debugVfhTree.connected())
-            _debugVfhTree.write(vfhServoing->getTree());
 	
 	gotNewMap = false;
     }
