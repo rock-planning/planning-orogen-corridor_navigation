@@ -221,7 +221,7 @@ void ServoingTask::updateHook()
 	
 	//only go onto terrain we know something about
 	//or if we can not gather any more information
-	if(frontArealStats.averageCertainty > 0.5 || sweepStatus == SWEEP_DONE)
+	if(frontArealStats.averageCertainty > 0.3 || sweepStatus == SWEEP_DONE)
 	{
 	    if(sweepStatus == SWEEP_DONE)
 		sweepStatus = SWEEP_UNTRACKED;
