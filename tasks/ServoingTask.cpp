@@ -186,7 +186,7 @@ void ServoingTask::updateHook()
 	{
 	    double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
 	    //TODO calulate distance to laser beam inpackt based on laser angle
-	    mapGenerator.markUnknownInRectangeAsTraversable(curPose, val, val, 0.5);
+	    mapGenerator.markUnknownInRectangeAsTraversable(curPose, val, val, 0.3);
 	    afterConfigure = false;
 	} 
 
