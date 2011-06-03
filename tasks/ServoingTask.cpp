@@ -162,11 +162,11 @@ void ServoingTask::updateHook()
 	    case SWEEP_UNTRACKED:
 		break;
 	    case WAITING_FOR_START:
-		if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
+		if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
 		    sweepStatus = SWEEP_STARTED;
 		break;
 	    case SWEEP_STARTED:
-		if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
+		if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
 		    sweepStatus = SWEEP_DONE;
 		break;
 	}
