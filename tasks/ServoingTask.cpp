@@ -124,6 +124,7 @@ bool ServoingTask::configureHook()
 
     gotNewMap = false;
     afterConfigure = true;
+    sweepStatus = SWEEP_UNTRACKED;
     
     return ServoingTaskBase::configureHook();
 }
