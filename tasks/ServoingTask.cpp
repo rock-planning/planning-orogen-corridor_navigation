@@ -176,7 +176,7 @@ void ServoingTask::updateHook()
     ServoingTaskBase::updateHook();
     
     //if we got a new map replan
-    if(gotNewMap) {
+    if(gotNewMap || sweepStatus == SWEEP_DONE) {
 	//notify the servoing that there is a new map
 	vfhServoing->setNewTraversabilityGrid(trGrid);
 	
@@ -249,15 +249,13 @@ void ServoingTask::updateHook()
 	
 	
 	//write out debug output
-        if (_gridDump.connected())
+        if (gotNewMap && _gridDump.connected())
         {
             vfh_star::GridDump gd;
             mapGenerator.getGridDump(gd);
             _gridDump.write(gd);
         }
-
-	
-	gotNewMap = false;
+	gotNewMap = false;	
     }
 }
 
