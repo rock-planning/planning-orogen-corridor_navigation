@@ -7,7 +7,7 @@ using namespace corridor_navigation;
 
 FollowingTask::FollowingTask(std::string const& name, TaskCore::TaskState initial_state)
     : FollowingTaskBase(name, initial_state)
-    , search(new corridor_navigation::VFHFollowing)
+    , search(0)
 {
 }
 
@@ -28,6 +28,8 @@ bool FollowingTask::startHook()
     if (! FollowingTaskBase::startHook())
         return false;
 
+    delete search;
+    search = new corridor_navigation::VFHFollowing;
     search->setSearchConf(_search_conf.get());
     search->setCostConf(_cost_conf.get());
     return true;
@@ -50,14 +52,20 @@ void FollowingTask::updateHook()
     {
         base::Time start = base::Time::now();
         std::cerr << "starting" << std::endl;
-        base::geometry::Spline<3> trajectory =
+        std::pair<base::geometry::Spline<3>, bool> result =
             search->getTrajectory(base::Pose(current_pose.position, current_pose.orientation), _search_horizon.get());
+        if (result.second)
+        {
+            stop();
+            return;
+        }
+
         std::cerr << "planning took " << (base::Time::now() - start).toMilliseconds() << " milliseconds" << std::endl;
         outputDebuggingTypes();
 
-        if (trajectory.isEmpty())
+        if (result.first.isEmpty())
             return exception(NO_VIABLE_PATH);
-        _trajectory.write(trajectory);
+        _trajectory.write(result.first);
 
     }
     catch(std::exception const& e)

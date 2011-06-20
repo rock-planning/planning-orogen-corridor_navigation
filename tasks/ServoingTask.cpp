@@ -15,12 +15,14 @@ ServoingTask::ServoingTask(std::string const& name)
     gridPos = new envire::FrameNode();
     env.attachItem(gridPos);
     
-    const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
+    mapGenerator = new vfh_star::TraversabilityMapGenerator();
+
+    const TraversabilityGrid &trGridGMS(mapGenerator->getTraversabilityMap());
 
     trGrid = new envire::Grid<Traversability>(trGridGMS.getWidth(), trGridGMS.getHeight(), trGridGMS.getGridEntrySize(), trGridGMS.getGridEntrySize());
     env.attachItem(trGrid);
     trGrid->setFrameNode(gridPos);
-    
+
     envire::Grid<Traversability>::ArrayType &gridData = trGrid->getGridData();
 
     for(int x = 0;x < trGrid->getWidth(); x++)
@@ -45,6 +47,9 @@ ServoingTask::~ServoingTask() {}
 
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
+    if (ts < startTime)
+        return;
+
     if(_heading.readNewest(globalHeading) == RTT::NoData)
     {
 	std::cout << "No Heading" << std::endl;
@@ -65,7 +70,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 	return;
     }
 
-    gotNewMap |= mapGenerator.addLaserScan(scan_reading, body2Odo, laser2Body);
+    gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
 }
 
 
@@ -85,8 +90,8 @@ bool ServoingTask::configureHook()
     //add a third, as a rule of thumb to avoid problems
     boundarySize *= 1.3;
     
-    mapGenerator.setBoundarySize(boundarySize);
-    mapGenerator.setMaxStepSize(_search_conf.get().maxStepSize);
+    mapGenerator->setBoundarySize(boundarySize);
+    mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
 
     asguard::Transformation asguardConf;
     asguard::Transformation tf;
@@ -125,14 +130,65 @@ bool ServoingTask::configureHook()
     gotNewMap = false;
     afterConfigure = true;
     sweepStatus = SWEEP_UNTRACKED;
+
+    static bool already_configured = false;
+    if (!already_configured)
+    {
+        if (!ServoingTaskBase::configureHook())
+            return false;
+    }
+    already_configured = true;
     
-    return ServoingTaskBase::configureHook();
+    return true;
 }
 
-// bool ServoingTask::startHook()
-// {
-//     return true;
-// }
+bool ServoingTask::startHook()
+{
+    if(vfhServoing)
+	delete vfhServoing;
+
+    vfhServoing = new corridor_navigation::VFHServoing();
+
+    delete mapGenerator;
+    mapGenerator = new vfh_star::TraversabilityMapGenerator();
+
+    gotNewMap = false;
+    afterConfigure = true;
+    sweepStatus = SWEEP_UNTRACKED;
+
+    //maximum distance of the horizon in the map
+    double boundarySize = _search_horizon.get() + _cost_conf.get().obstacleSenseRadius + _search_conf.get().stepDistance;
+
+    //add a third, as a rule of thumb to avoid problems
+    boundarySize *= 1.3;
+    
+    mapGenerator->setBoundarySize(boundarySize);
+    mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
+
+    envire::Grid<Traversability>::ArrayType &gridData = trGrid->getGridData();
+
+    for(int x = 0;x < trGrid->getWidth(); x++)
+    {
+	for(int y = 0;y < trGrid->getHeight(); y++)
+	{
+	    gridData[x][y] = UNCLASSIFIED;
+	}
+    }
+    
+    vfhServoing->setNewTraversabilityGrid(trGrid);
+    gotNewMap = false;
+
+    vfhServoing->setCostConf(_cost_conf.get());
+    vfhServoing->setSearchConf(_search_conf.get());
+    
+    body2Odo = Transform3d::Identity();
+    
+    dynamixelMin = std::numeric_limits< double >::max();
+    dynamixelMax = -std::numeric_limits< double >::max();
+    startTime = base::Time::now();
+
+    return true;
+}
 
 
 
@@ -164,11 +220,17 @@ void ServoingTask::updateHook()
 		break;
 	    case WAITING_FOR_START:
 		if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
+		{
+		    std::cout << "Sweep started" << std::endl; 
 		    sweepStatus = SWEEP_STARTED;
+		}
 		break;
 	    case SWEEP_STARTED:
 		if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
+		{
+		    std::cout << "Sweep done" << std::endl; 
 		    sweepStatus = SWEEP_DONE;
+		}
 		break;
 	}
     }
@@ -187,23 +249,23 @@ void ServoingTask::updateHook()
 	{
 	    double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
 	    //TODO calulate distance to laser beam inpackt based on laser angle
-	    mapGenerator.markUnknownInRectangeAsTraversable(curPose, val, val, 0.3);
+	    mapGenerator->markUnknownInRectangeAsTraversable(curPose, val, val, 0.3);
 	    afterConfigure = false;
 	} 
 
-	mapGenerator.computeNewMap();
+	mapGenerator->computeNewMap();
 	const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
 	//mark all unknown beside the robot as obstacle, but none in front of the robot
-	mapGenerator.markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
+	mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
 	
-	const TraversabilityGrid &trGridGMS(mapGenerator.getTraversabilityMap());
+	const TraversabilityGrid &trGridGMS(mapGenerator->getTraversabilityMap());
 
 	vfhServoing->clearDebugData();
 	
 	base::Pose frontArea(curPose);
 	frontArea.position += curPose.orientation * Vector3d(0, 0.5, 0);
 	
-	vfh_star::ConsistencyStats frontArealStats = mapGenerator.checkMapConsistencyInArea(frontArea, 0.5, 0.5);
+	vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
 	
 	//set correct position of grid in envire
 	Transform3d tr;
@@ -244,7 +306,13 @@ void ServoingTask::updateHook()
 	} else {	    
 	    //we need to wait a full sweep
 	    if(sweepStatus == SWEEP_UNTRACKED)
+	    {
+		std::cout << "Waiting until sweep is completed" << std::endl; 
 		sweepStatus = WAITING_FOR_START;
+	    }
+
+	    std::vector<base::Waypoint> waypoints;	    
+	    _trajectory.write(TreeSearch::waypointsToSpline(waypoints));
 	}
 	
 	
@@ -252,7 +320,7 @@ void ServoingTask::updateHook()
         if (gotNewMap && _gridDump.connected())
         {
             vfh_star::GridDump gd;
-            mapGenerator.getGridDump(gd);
+            mapGenerator->getGridDump(gd);
             _gridDump.write(gd);
         }
 	gotNewMap = false;	

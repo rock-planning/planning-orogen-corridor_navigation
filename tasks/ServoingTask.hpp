@@ -22,7 +22,7 @@ namespace corridor_navigation {
     protected:
 	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
-	vfh_star::TraversabilityMapGenerator mapGenerator;
+	vfh_star::TraversabilityMapGenerator *mapGenerator;
 	
 	/** callback to receive laser scanner readings*/
 	void scan_callback( base::Time ts, const base::samples::LaserScan& scan_reading );
@@ -51,6 +51,8 @@ namespace corridor_navigation {
 	SweepStatus sweepStatus;
 	
 	double dynamixelAngle;
+
+        base::Time startTime;
 	
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -77,7 +79,7 @@ namespace corridor_navigation {
          * stay in Stopped. Otherwise, it goes into Running and updateHook()
          * will be called.
          */
-        // bool startHook();
+        bool startHook();
 
         /** This hook is called by Orocos when the component is in the Running
          * state, at each activity step. Here, the activity gives the "ticks"
