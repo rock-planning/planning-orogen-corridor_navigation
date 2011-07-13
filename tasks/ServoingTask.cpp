@@ -37,7 +37,7 @@ ServoingTask::ServoingTask(std::string const& name)
     vfhServoing->setNewTraversabilityGrid(trGrid);
     gotNewMap = false;
     
-    body2Odo = Transform3d::Identity();
+    body2Odo = Affine3d::Identity();
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
@@ -181,7 +181,7 @@ bool ServoingTask::startHook()
     vfhServoing->setCostConf(_cost_conf.get());
     vfhServoing->setSearchConf(_search_conf.get());
     
-    body2Odo = Transform3d::Identity();
+    body2Odo = Affine3d::Identity();
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
