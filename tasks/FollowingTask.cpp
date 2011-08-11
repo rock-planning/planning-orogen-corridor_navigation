@@ -40,10 +40,11 @@ void FollowingTask::updateHook()
     FollowingTaskBase::updateHook();
 
     corridors::Corridor corridor;
-    if (_corridor.readNewest(corridor) == RTT::NewData)
-    {
+    RTT::FlowStatus status = _corridor.readNewest(corridor);
+    if (status == RTT::NewData)
         search->setCorridor(corridor);
-    }
+    else if (status == RTT::NoData)
+        return;
 
     base::samples::RigidBodyState current_pose;
     if (_pose_samples.readNewest(current_pose) == RTT::NoData)
