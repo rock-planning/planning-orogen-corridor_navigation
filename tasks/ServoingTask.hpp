@@ -3,7 +3,6 @@
 
 #include "corridor_navigation/ServoingTaskBase.hpp"
 #include <corridor_navigation/VFHServoing.hpp>
-#include <StreamAligner.hpp>
 #include <vfh_star/TraversabilityMapGenerator.h>
 #include <Eigen/Core>
 
