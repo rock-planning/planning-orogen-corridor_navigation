@@ -23,16 +23,8 @@ ServoingTask::ServoingTask(std::string const& name)
     env.attachItem(trGrid);
     trGrid->setFrameNode(gridPos);
 
-    envire::Grid<Traversability>::ArrayType &gridData = trGrid->getGridData();
+    copyGrid();
 
-    for(size_t x = 0;x < trGrid->getWidth(); x++)
-    {
-	for(size_t y = 0;y < trGrid->getHeight(); y++)
-	{
-	    gridData[x][y] = UNCLASSIFIED;
-	}
-    }
-    
     vfhServoing = new corridor_navigation::VFHServoing();
     vfhServoing->setNewTraversabilityGrid(trGrid);
     gotNewMap = false;
@@ -45,11 +37,27 @@ ServoingTask::ServoingTask(std::string const& name)
 
 ServoingTask::~ServoingTask() {}
 
+void ServoingTask::copyGrid() 
+{
+    const TraversabilityGrid &trGridGMS(mapGenerator->getTraversabilityMap());
+    envire::Grid<Traversability>::ArrayType &trData = trGrid->getGridData();
+    for(int x = 0; x < trGridGMS.getWidth(); x++) 
+    {
+	for(int y = 0; y < trGridGMS.getHeight(); y++) 
+	{
+	    trData[x][y] = trGridGMS.getEntry(x, y);
+	}
+    }	
+
+    //set correct position of grid in envire
+    Affine3d tr;
+    tr.setIdentity();
+    tr.translation() = trGridGMS.getGridPosition();
+    gridPos->setTransform(tr);
+}
+
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
-    if (ts < startTime)
-        return;
-
     if(_heading.readNewest(globalHeading) == RTT::NoData)
     {
 	std::cout << "No Heading" << std::endl;
@@ -81,6 +89,9 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 
 bool ServoingTask::configureHook()
 {    
+    if (!ServoingTaskBase::configureHook())
+        return false;
+
     vfhServoing->setCostConf(_cost_conf.get());
     vfhServoing->setSearchConf(_search_conf.get());
     
@@ -93,6 +104,11 @@ bool ServoingTask::configureHook()
     mapGenerator->setBoundarySize(boundarySize);
     mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
 
+    return true;
+}
+
+bool ServoingTask::startHook()
+{
     asguard::Transformation asguardConf;
     asguard::Transformation tf;
 
@@ -131,62 +147,15 @@ bool ServoingTask::configureHook()
     afterConfigure = true;
     sweepStatus = SWEEP_UNTRACKED;
 
-    static bool already_configured = false;
-    if (!already_configured)
-    {
-        if (!ServoingTaskBase::configureHook())
-            return false;
-    }
-    already_configured = true;
-    
-    return true;
-}
+    mapGenerator->clearMap();
+    copyGrid();
 
-bool ServoingTask::startHook()
-{
-    if(vfhServoing)
-	delete vfhServoing;
-
-    vfhServoing = new corridor_navigation::VFHServoing();
-
-    delete mapGenerator;
-    mapGenerator = new vfh_star::TraversabilityMapGenerator();
-
-    gotNewMap = false;
-    afterConfigure = true;
-    sweepStatus = SWEEP_UNTRACKED;
-
-    //maximum distance of the horizon in the map
-    double boundarySize = _search_horizon.get() + _cost_conf.get().obstacleSenseRadius + _search_conf.get().stepDistance;
-
-    //add a third, as a rule of thumb to avoid problems
-    boundarySize *= 1.3;
-    
-    mapGenerator->setBoundarySize(boundarySize);
-    mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
-
-    envire::Grid<Traversability>::ArrayType &gridData = trGrid->getGridData();
-
-    for(size_t x = 0;x < trGrid->getWidth(); x++)
-    {
-	for(size_t y = 0;y < trGrid->getHeight(); y++)
-	{
-	    gridData[x][y] = UNCLASSIFIED;
-	}
-    }
-    
     vfhServoing->setNewTraversabilityGrid(trGrid);
-    gotNewMap = false;
-
-    vfhServoing->setCostConf(_cost_conf.get());
-    vfhServoing->setSearchConf(_search_conf.get());
     
     body2Odo = Affine3d::Identity();
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
-    startTime = base::Time::now();
-
     return true;
 }
 
@@ -242,7 +211,7 @@ void ServoingTask::updateHook()
 	//notify the servoing that there is a new map
 	vfhServoing->setNewTraversabilityGrid(trGrid);
 	
-	TreeSearchConf search_conf(_search_conf.get());
+	TreeSearchConf search_conf(_search_conf.value());
 	
 	const base::Pose curPose(body2Odo);
 	if(afterConfigure)
@@ -258,8 +227,6 @@ void ServoingTask::updateHook()
 	//mark all unknown beside the robot as obstacle, but none in front of the robot
 	mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
 	
-	const TraversabilityGrid &trGridGMS(mapGenerator->getTraversabilityMap());
-
 	vfhServoing->clearDebugData();
 	
 	base::Pose frontArea(curPose);
@@ -267,20 +234,8 @@ void ServoingTask::updateHook()
 	
 	vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
 	
-	//set correct position of grid in envire
-	Affine3d tr;
-	tr.setIdentity();
-	tr.translation() = trGridGMS.getGridPosition();
-	gridPos->setTransform(tr);
-	
 	//copy data to envire grid
-	envire::Grid<Traversability>::ArrayType &trData = trGrid->getGridData();
-	for(int x = 0; x < trGridGMS.getWidth(); x++) {
-	    for(int y = 0; y < trGridGMS.getHeight(); y++) {
-		trData[x][y] = trGridGMS.getEntry(x, y);
-	    }
-	}
-	
+	copyGrid();
 	
 	//only go onto terrain we know something about
 	//or if we can not gather any more information

@@ -27,6 +27,11 @@ namespace corridor_navigation {
 	void scan_callback( base::Time ts, const base::samples::LaserScan& scan_reading );
 
 	virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
+
+	/**
+	 * Copies the data from the map generator to trGrid 
+	 **/
+	void copyGrid();
 	
 	///Last transformation from body to odometry
 	Eigen::Affine3d body2Odo;
@@ -50,9 +55,6 @@ namespace corridor_navigation {
 	SweepStatus sweepStatus;
 	
 	double dynamixelAngle;
-
-        base::Time startTime;
-	
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");
