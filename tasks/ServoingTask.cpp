@@ -25,9 +25,9 @@ ServoingTask::ServoingTask(std::string const& name)
 
     envire::Grid<Traversability>::ArrayType &gridData = trGrid->getGridData();
 
-    for(int x = 0;x < trGrid->getWidth(); x++)
+    for(size_t x = 0;x < trGrid->getWidth(); x++)
     {
-	for(int y = 0;y < trGrid->getHeight(); y++)
+	for(size_t y = 0;y < trGrid->getHeight(); y++)
 	{
 	    gridData[x][y] = UNCLASSIFIED;
 	}
@@ -167,9 +167,9 @@ bool ServoingTask::startHook()
 
     envire::Grid<Traversability>::ArrayType &gridData = trGrid->getGridData();
 
-    for(int x = 0;x < trGrid->getWidth(); x++)
+    for(size_t x = 0;x < trGrid->getWidth(); x++)
     {
-	for(int y = 0;y < trGrid->getHeight(); y++)
+	for(size_t y = 0;y < trGrid->getHeight(); y++)
 	{
 	    gridData[x][y] = UNCLASSIFIED;
 	}
