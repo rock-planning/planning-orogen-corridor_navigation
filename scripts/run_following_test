@@ -1,8 +1,9 @@
 #! /usr/bin/env ruby
 
 require 'orocos'
-require 'widget_grid'
+require 'vizkit'
 require 'eigen'
+require 'base/float'
 ENV['PKG_CONFIG_PATH'] = "#{File.expand_path(File.dirname(__FILE__), File.join('..', 'build'))}:#{ENV['PKG_CONFIG_PATH']}"
 Orocos.initialize
 
@@ -39,8 +40,7 @@ data = samples.first.last
 # If the data is given as a plan, select a random path
 if data.respond_to?(:all_paths) # this is a plan, not a corridor
     path = data.all_paths
-    # path = path[rand(path.size)]
-    path = path[2]
+    path = path[rand(path.size)]
     data = data.path_to_corridor(path)
 
     # length = data.width_curve.end_param - data.width_curve.start_param
@@ -62,13 +62,32 @@ def advance(rbs, pose_w, trajectory)
     puts "new position: #{p.x} #{p.y} #{p.z}, theta=#{rbs.orientation.yaw / Math::PI * 180}"
 end
 
-def do_test(follower, data)
+def do_test(follower, data, env_path = nil)
     Orocos.log_all
-    gui = WidgetGrid.new
+
+    view3d = Vizkit.vizkit3d_widget
+    view3d.show
+
+    vizkit_corridors = view3d.createPlugin('corridor_planner')
+    vizkit_corridors.setAlpha(0.5)
+    vizkit_corridors.setZOffset(0.05)
+
+    vizkit_vfh = view3d.createPlugin('vfh_star', 'VFHTree')
+
+    vizkit_envire = view3d.createPlugin('envire')
+    if env_path
+        vizkit_corridors.setMLS(env_path)
+        vizkit_envire.load(env_path)
+    end
+
+    vizkit_rbs = view3d.createPlugin('RigidBodyStateVisualization')
+    vizkit_rbs.resetModel(0.5)
+    vizkit_rbs.displayCovarianceWithSamples(true)
 
     follower.search_horizon = 2
     search_conf = follower.search_conf
     search_conf.stepDistance = 0.25
+    search_conf.identityThreshold = 0.06
     search_conf.maxTreeSize = 10000
     search_conf.discountFactor = 1.0
     search_conf.angularSamplingMin = Math::PI / 30
@@ -82,38 +101,55 @@ def do_test(follower, data)
     cost_conf.pointTurnSpeed      = Math::PI / 10
     cost_conf.speedAfterPointTurn = 0.2
     cost_conf.safetyDistanceToBorder = 0.5
-    cost_conf.distanceToBorderWeight[0] = 2
+    cost_conf.distanceToBorderWeight[0] = 0
     cost_conf.distanceToBorderWeight[1] = 5
     cost_conf.baseTurnCost = 0.0
-    cost_conf.finalDirectionCost = 0;
+    cost_conf.finalDirectionCost = 3
     follower.cost_conf = cost_conf
 
-    base_dir = File.expand_path(File.dirname(__FILE__))
-    widget = gui.display(follower.debugVfhTree, :env => File.join(base_dir, 'track-simple'), :pointcloud => [1, 100, 100, 0.25, 0.25], :position => :center)
-    widget.setTreeCostMode(1)
-    widget.removeTreeLeaves(true)
-    widget.updateSelectedCorridor(data)
+    vizkit_corridors.displayCorridor(data)
 
     follower.start
 
-    corridor_w = follower.corridor.writer
     pose_w     = follower.pose_samples.writer
-    traj_r     = follower.trajectory.reader
-    debug_r    = follower.debug.reader
-    # lut_r      = follower.debugLUT.reader
-    corridor_w.write(data)
 
-    rbs = Types::Base::Samples::RigidBodyState.new
-    rbs.position    = data.median_curve.get(data.median_curve.curve_length / 5) + Eigen::Vector3.new(0, -1, 0)
-    rbs.orientation = Eigen::Quaternion.Unit
-    rbs.position = Eigen::Vector3.new(24.9719, 49.806, 0)
-    rbs.orientation = Eigen::Quaternion.from_yaw(-2.01886)
-    puts "start position: #{rbs.position.to_a.inspect}"
-    pose_w.write(rbs)
+    follower.debug.connect_to do |debug, name|
+        h0 = debug.horizon[0]
+        h1 = debug.horizon[1]
+        vizkit_vfh.updateSegment([Eigen::Vector3.new(*h0.to_a), Eigen::Vector3.new(*h1.to_a)])
+        vizkit_vfh.updateTree(debug.tree)
+        debug
+    end
 
+    # Used to share the last trajectory between the reader and the GUI buttons
+    auto_advance = false
     trajectory = nil
 
-    auto_advance = false
+    follower.trajectory.connect_to do |traj, name|
+        result = trajectory = Typelib.to_ruby(traj)
+        d = (result.get(result.end_param) - result.get(result.start_param)).norm()
+        puts "updated trajectory, end_p=#{result.get(result.end_param).to_a.inspect} d=#{d}"
+
+        if auto_advance
+            advance(rbs, pose_w, result)
+        end
+        traj
+    end
+    corridor_w = follower.problem.writer
+    sample = corridor_w.new_sample
+    sample.corridor = data
+    sample.desiredFinalHeading = -0.15
+    corridor_w.write(sample)
+
+    rbs = Types::Base::Samples::RigidBodyState.new
+    rbs.zero!
+    rbs.position    = data.median_curve.get(data.median_curve.curve_length / 5)
+    rbs.position = Types::Base::Position.new(4.57, 5.45, 0.35)
+    rbs.orientation = Eigen::Quaternion.Unit
+    puts "start position: #{rbs.position.to_a.inspect}"
+    pose_w.write(rbs)
+    vizkit_rbs.updateData(rbs)
+
     play_btn = Qt::PushButton.new("Play")
     step_btn = Qt::PushButton.new("Step")
     develop_btn = Qt::PushButton.new("Replay tree development")
@@ -152,48 +188,19 @@ def do_test(follower, data)
         end
     end
     leaves_btn.connect(SIGNAL(:clicked)) do
-        widget.removeTreeLeaves(!leaves_btn.checked?)
+        vizkit_corridors.removeTreeLeaves(!leaves_btn.checked?)
     end
 
     path = 0
-    last_debug = nil
-    gui.run(50) do
-        if !follower.running?
-            puts "follower task terminated with state #{follower.state}"
-        elsif result = traj_r.read_new
-            d = (result.get(result.end_param) - result.get(result.start_param)).norm()
-            puts "updated trajectory, end_p=#{result.get(result.end_param).to_a.inspect} d=#{d}"
-            trajectory = result
 
-            if auto_advance
-                advance(rbs, pose_w, trajectory)
-            end
-        end
-
-        if debug = debug_r.read_new
-            puts "updated horizon display"
-            h0 = debug.horizon[0]
-            h1 = debug.horizon[1]
-            widget.updateHorizon(*(h0.to_a + h1.to_a))
-            last_debug = debug
-        elsif last_debug && max_count
-            max_count += 1
-            if last_debug.tree.nodes.size == max_count
-                max_count = nil
-                widget.setMaxNodeCount(0)
-            else
-                develop_btn.setText("Developing tree, current=#{max_count}")
-                widget.setMaxNodeCount(max_count)
-            end
-        end
-    end
+    Vizkit.exec
 end
 
 begin
     follower = Orocos::TaskContext.get 'corridor_following'
     do_test(follower, data)
 rescue Orocos::NotFound
-    Orocos.run 'corridorNavigationTest' do
+    Orocos.run 'corridor_navigation::FollowingTask' => 'corridor_following', :output => '%m-%p.txt' do
         follower = Orocos::TaskContext.get 'corridor_following'
         do_test(follower, data)
     end
