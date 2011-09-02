@@ -77,8 +77,8 @@ task_context "FollowingTask" do
     property('search_horizon', 'double').
         doc 'the search horizon, in meters'
 
-    input_port('corridor', '/corridors/Corridor').
-        doc 'the corridor to follow'
+    input_port('problem', '/corridor_navigation/CorridorFollowingProblem').
+        doc 'the corridor following problem'
 
     input_port('pose_samples', '/base/samples/RigidBodyState').
         doc 'the current robot pose'

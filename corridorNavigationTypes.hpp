@@ -2,9 +2,12 @@
 #define OROGEN_CORRIDOR_NAVIGATION_TYPES__H
 
 #include <vfh_star/VFH.h>
-#include <base/waypoint.h>
+#include <base/float.h>
+// Load the base typekit to get Pose_m, used to create the vfh_star::TreeNode
+// wrapper
 #include <base/Types.hpp>
 #include <vector>
+#include <corridor_planner/corridors.hh>
 
 namespace wrappers {
     namespace vfh_star {
@@ -36,6 +39,16 @@ namespace corridor_navigation {
     struct FollowingDebug {
         base::Vector3d horizon[2];
         vfh_star::Tree tree;
+    };
+
+    /** Type used to provide a complete problem to the task
+     */
+    struct CorridorFollowingProblem {
+        double desiredFinalHeading;
+        corridors::Corridor corridor;
+
+        CorridorFollowingProblem()
+            : desiredFinalHeading(base::unset<double>()) {}
     };
 }
 

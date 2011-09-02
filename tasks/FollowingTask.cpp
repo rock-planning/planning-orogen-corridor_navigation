@@ -39,10 +39,10 @@ void FollowingTask::updateHook()
 {
     FollowingTaskBase::updateHook();
 
-    corridors::Corridor corridor;
-    RTT::FlowStatus status = _corridor.readNewest(corridor);
+    corridor_navigation::CorridorFollowingProblem problem;
+    RTT::FlowStatus status = _problem.readNewest(problem);
     if (status == RTT::NewData)
-        search->setCorridor(corridor);
+        search->setCorridor(problem.corridor, problem.desiredFinalHeading);
     else if (status == RTT::NoData)
         return;
 
