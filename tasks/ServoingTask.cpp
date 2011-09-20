@@ -116,25 +116,25 @@ bool ServoingTask::startHook()
     lowerDyn2Head.sourceFrame = "lower_dynamixel";
     lowerDyn2Head.targetFrame = "head";
     lowerDyn2Head.setTransform(tf.lowerDynamixel2Head);
-    transformer.pushStaticTransformation(lowerDyn2Head);
+    _transformer.pushStaticTransformation(lowerDyn2Head);
 
     base::samples::RigidBodyState tiltHead2UpperDyn;
     tiltHead2UpperDyn.sourceFrame = "tilt_head";
     tiltHead2UpperDyn.targetFrame = "upper_dynamixel";
     tiltHead2UpperDyn.setTransform(tf.tiltHead2UpperDynamixel);
-    transformer.pushStaticTransformation(tiltHead2UpperDyn);
+    _transformer.pushStaticTransformation(tiltHead2UpperDyn);
     
     base::samples::RigidBodyState laser2TiltHead;
     laser2TiltHead.sourceFrame = "laser";
     laser2TiltHead.targetFrame = "tilt_head";
     laser2TiltHead.setTransform(tf.laser2TiltHead);
-    transformer.pushStaticTransformation(laser2TiltHead);
+    _transformer.pushStaticTransformation(laser2TiltHead);
     
     base::samples::RigidBodyState head2Body;
     head2Body.sourceFrame = "head";
     head2Body.targetFrame = "body";
     head2Body.setTransform(tf.head2Body);
-    transformer.pushStaticTransformation(head2Body);    
+    _transformer.pushStaticTransformation(head2Body);    
 
     //static case
     /*    base::samples::RigidBodyState lowerDyn2UpperDyn;
@@ -167,13 +167,13 @@ void ServoingTask::updateHook()
     base::samples::RigidBodyState odometry_reading;
     while( _odometry_samples.read(odometry_reading, false) == RTT::NewData )
     {
-	transformer.pushDynamicTransformation( odometry_reading );	
+	_transformer.pushDynamicTransformation( odometry_reading );	
     }
 
     base::samples::RigidBodyState dynamixel_reading;
     while( _dynamixel_samples.read(dynamixel_reading, false) == RTT::NewData )
     {
-	transformer.pushDynamicTransformation( dynamixel_reading );	
+	_transformer.pushDynamicTransformation( dynamixel_reading );	
 
 	Vector3d angles = dynamixel_reading.orientation.toRotationMatrix().eulerAngles(2,1,0);
 	dynamixelMin = std::min(dynamixelMin, angles[2]);
