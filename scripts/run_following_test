@@ -125,16 +125,6 @@ def do_test(follower, data, env_path = nil)
     auto_advance = false
     trajectory = nil
 
-    follower.trajectory.connect_to do |traj, name|
-        result = trajectory = Typelib.to_ruby(traj)
-        d = (result.get(result.end_param) - result.get(result.start_param)).norm()
-        puts "updated trajectory, end_p=#{result.get(result.end_param).to_a.inspect} d=#{d}"
-
-        if auto_advance
-            advance(rbs, pose_w, result)
-        end
-        traj
-    end
     corridor_w = follower.problem.writer
     sample = corridor_w.new_sample
     sample.corridor = data
@@ -161,6 +151,17 @@ def do_test(follower, data, env_path = nil)
     layout.add_widget(develop_btn)
     layout.add_widget(leaves_btn)
     root.show
+
+    follower.trajectory.connect_to do |traj, name|
+        result = trajectory = Typelib.to_ruby(traj)
+        d = (result.get(result.end_param) - result.get(result.start_param)).norm()
+        puts "updated trajectory, end_p=#{result.get(result.end_param).to_a.inspect} d=#{d}"
+
+        if auto_advance
+            advance(rbs, pose_w, result)
+        end
+        traj
+    end
 
     play_btn.connect(SIGNAL(:clicked)) do
         auto_advance = !auto_advance
