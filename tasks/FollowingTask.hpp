@@ -76,7 +76,7 @@ namespace corridor_navigation {
          */
         // void cleanupHook();
 
-        void outputDebuggingTypes();
+        void outputDebuggingTypes(base::Time const& planning_time);
     };
 }
 

@@ -61,8 +61,8 @@ void FollowingTask::updateHook()
             return;
         }
 
-        std::cerr << "planning took " << (base::Time::now() - start).toMilliseconds() << " milliseconds" << std::endl;
-        outputDebuggingTypes();
+        base::Time planning_time = (base::Time::now() - start);
+        outputDebuggingTypes(planning_time);
 
         if (result.first.isEmpty())
             return exception(NO_VIABLE_PATH);
@@ -71,19 +71,20 @@ void FollowingTask::updateHook()
     }
     catch(std::exception const& e)
     {
-        outputDebuggingTypes();
+        outputDebuggingTypes(base::Time());
         throw;
     }
 
 }
 
-void FollowingTask::outputDebuggingTypes()
+void FollowingTask::outputDebuggingTypes(base::Time const& planning_time)
 {
     if (_debugVfhTree.connected())
         _debugVfhTree.write(search->getTree());
     if (_debug.connected())
     {
         FollowingDebug debug;
+        debug.planning_time = planning_time;
         pair<base::Vector3d, base::Vector3d> h = search->getHorizon();
         debug.horizon[0] = h.first;
         debug.horizon[1] = h.second;

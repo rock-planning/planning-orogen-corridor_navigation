@@ -37,6 +37,7 @@ namespace corridor_navigation {
     };
 
     struct FollowingDebug {
+        base::Time planning_time;
         base::Vector3d horizon[2];
         vfh_star::Tree tree;
     };
