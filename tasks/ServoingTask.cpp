@@ -86,7 +86,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     laser2Map.targetFrame = "map";
     laser2Map.time = ts;
     
-    _laser_frame.write(laser2Map);
+    _debug_laser_frame.write(laser2Map);
 }
 
 
