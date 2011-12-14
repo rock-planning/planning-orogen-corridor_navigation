@@ -45,6 +45,9 @@ task_context "ServoingTask" do
     output_port('debugVfhTree', '/vfh_star/Tree').
         doc 'the resulting internal search tree'
 
+    output_port('laser_frame', '/base/samples/RigidBodyState').
+	doc 'debug frame. This is the frame of the laser scan in respect to the map.'
+
     ##########################
     # transformer parameters
     ##########################

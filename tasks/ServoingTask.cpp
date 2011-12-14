@@ -79,6 +79,14 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     }
 
     gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
+    
+    base::samples::RigidBodyState laser2Map;
+    laser2Map.setTransform(mapGenerator->getLaser2Map());
+    laser2Map.sourceFrame = "laser";
+    laser2Map.targetFrame = "map";
+    laser2Map.time = ts;
+    
+    _laser_frame.write(laser2Map);
 }
 
 
