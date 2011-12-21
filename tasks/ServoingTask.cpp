@@ -116,8 +116,10 @@ bool ServoingTask::configureHook()
 }
 
 bool ServoingTask::startHook()
-{
-    asguard::Transformation asguardConf;
+{  
+    if(!ServoingTaskBase::startHook())
+	return false;
+    
     asguard::Transformation tf;
 
     base::samples::RigidBodyState lowerDyn2Head;
