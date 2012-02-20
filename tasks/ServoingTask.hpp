@@ -41,7 +41,8 @@ namespace corridor_navigation {
 	
 	bool gotNewMap;
 	
-	bool afterConfigure;
+        // True just after the startHook, and until we get a proper pose update
+	bool justStarted;
 
 	envire::Environment env;
 

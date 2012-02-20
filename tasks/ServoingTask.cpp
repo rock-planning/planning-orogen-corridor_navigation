@@ -58,12 +58,6 @@ void ServoingTask::copyGrid()
 
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
-    if(_heading.readNewest(globalHeading) == RTT::NoData)
-    {
-	std::cout << "No Heading" << std::endl;
-	return;
-    }
-    
     Eigen::Affine3d laser2Body;
     
     if(!_laser2body.get(ts, laser2Body, true))
@@ -77,6 +71,15 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 	std::cout << "No body2Odo" << std::endl;
 	return;
     }
+
+    if(justStarted)
+    {
+        TreeSearchConf search_conf(_search_conf.value());
+        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+        //TODO calulate distance to laser beam inpackt based on laser angle
+        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(body2Odo), val, val, 0.3);
+        justStarted = false;
+    } 
 
     gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
     
@@ -154,7 +157,7 @@ bool ServoingTask::startHook()
     transformer.pushStaticTransformation(lowerDyn2UpperDyn);    */
 
     gotNewMap = false;
-    afterConfigure = true;
+    justStarted = true;
     sweepStatus = SWEEP_UNTRACKED;
 
     mapGenerator->clearMap();
@@ -215,33 +218,43 @@ void ServoingTask::updateHook()
     }
     
     ServoingTaskBase::updateHook();
-    
-    //if we got a new map replan
-    if(gotNewMap || sweepStatus == SWEEP_DONE) {
-	//notify the servoing that there is a new map
-	vfhServoing->setNewTraversabilityGrid(trGrid);
-	
-	TreeSearchConf search_conf(_search_conf.value());
-	
-	const base::Pose curPose(body2Odo);
-	if(afterConfigure)
-	{
-	    double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
-	    //TODO calulate distance to laser beam inpackt based on laser angle
-	    mapGenerator->markUnknownInRectangeAsTraversable(curPose, val, val, 0.3);
-	    afterConfigure = false;
-	} 
 
+    if (gotNewMap)
+    {
 	mapGenerator->computeNewMap();
+
+	TreeSearchConf search_conf(_search_conf.value());
+	const base::Pose curPose(body2Odo);
 	const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
 	//mark all unknown beside the robot as obstacle, but none in front of the robot
 	mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
+    }
+    
+    // Output the map
+    if (_gridDump.connected() && gotNewMap)
+    {
+        vfh_star::GridDump gd;
+        mapGenerator->getGridDump(gd);
+        _gridDump.write(gd);
+    }
+
+    if(_heading.readNewest(globalHeading) == RTT::NoData)
+    {
+        std::cout << "No Heading" << std::endl;
+        return;
+    }
+    
+    // Plan only if required and if we have a new map
+    if(_trajectory.connected() || (gotNewMap || sweepStatus == SWEEP_DONE)) {
+	//notify the servoing that there is a new map
+	vfhServoing->setNewTraversabilityGrid(trGrid);
+	
+	const base::Pose curPose(body2Odo);
 	
 	vfhServoing->clearDebugData();
 	
 	base::Pose frontArea(curPose);
 	frontArea.position += curPose.orientation * Vector3d(0, 0.5, 0);
-	
 	vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
 	
 	//copy data to envire grid
@@ -279,17 +292,9 @@ void ServoingTask::updateHook()
 	    std::vector<base::Waypoint> waypoints;	    
 	    _trajectory.write(TreeSearch::waypointsToSpline(waypoints));
 	}
-	
-	
-	//write out debug output
-        if (gotNewMap && _gridDump.connected())
-        {
-            vfh_star::GridDump gd;
-            mapGenerator->getGridDump(gd);
-            _gridDump.write(gd);
-        }
-	gotNewMap = false;	
     }
+
+    gotNewMap = false;	
 }
 
 // void ServoingTask::errorHook()
