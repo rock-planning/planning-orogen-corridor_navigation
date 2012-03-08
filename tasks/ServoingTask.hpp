@@ -54,6 +54,7 @@ namespace corridor_navigation {
 	double dynamixelMin;
 	double dynamixelMax;
 	SweepStatus sweepStatus;
+        void updateSweepingState(Eigen::Affine3d const& sweep);
 	
 	double dynamixelAngle;
     public:

@@ -1,6 +1,5 @@
 #include "ServoingTask.hpp"
 #include <vfh_star/VFHStar.h>
-#include <asguard/Transformation.hpp>
 #include <vfh_star/VFH.h>
 
 using namespace corridor_navigation;
@@ -56,21 +55,47 @@ void ServoingTask::copyGrid()
     gridPos->setTransform(tr);
 }
 
+void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
+{
+    Vector3d angles = transformation.rotation().eulerAngles(2,1,0);
+    dynamixelMin = std::min(dynamixelMin, angles[2]);
+    dynamixelMax = std::max(dynamixelMax, angles[2]);
+
+    dynamixelAngle = angles[2];
+
+    //track sweep status
+    switch (sweepStatus)
+    {
+        case SWEEP_DONE:
+        case SWEEP_UNTRACKED:
+            break;
+        case WAITING_FOR_START:
+            if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
+            {
+                std::cout << "Sweep started" << std::endl; 
+                sweepStatus = SWEEP_STARTED;
+            }
+            break;
+        case SWEEP_STARTED:
+            if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
+            {
+                std::cout << "Sweep done" << std::endl; 
+                sweepStatus = SWEEP_DONE;
+            }
+            break;
+    }
+}
+
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
     Eigen::Affine3d laser2Body;
-    
     if(!_laser2body.get(ts, laser2Body, true))
-    {
-	std::cout << "No laser2Body" << std::endl;
 	return;
-    }
+
+    updateSweepingState(laser2Body);
     
     if(!_body2odometry.get(ts, body2Odo, true))
-    {
-	std::cout << "No body2Odo" << std::endl;
 	return;
-    }
 
     if(justStarted)
     {
@@ -123,39 +148,6 @@ bool ServoingTask::startHook()
     if(!ServoingTaskBase::startHook())
 	return false;
     
-    asguard::Transformation tf;
-
-    base::samples::RigidBodyState lowerDyn2Head;
-    lowerDyn2Head.sourceFrame = "lower_dynamixel";
-    lowerDyn2Head.targetFrame = "head";
-    lowerDyn2Head.setTransform(tf.lowerDynamixel2Head);
-    _transformer.pushStaticTransformation(lowerDyn2Head);
-
-    base::samples::RigidBodyState tiltHead2UpperDyn;
-    tiltHead2UpperDyn.sourceFrame = "tilt_head";
-    tiltHead2UpperDyn.targetFrame = "upper_dynamixel";
-    tiltHead2UpperDyn.setTransform(tf.tiltHead2UpperDynamixel);
-    _transformer.pushStaticTransformation(tiltHead2UpperDyn);
-    
-    base::samples::RigidBodyState laser2TiltHead;
-    laser2TiltHead.sourceFrame = "laser";
-    laser2TiltHead.targetFrame = "tilt_head";
-    laser2TiltHead.setTransform(tf.laser2TiltHead);
-    _transformer.pushStaticTransformation(laser2TiltHead);
-    
-    base::samples::RigidBodyState head2Body;
-    head2Body.sourceFrame = "head";
-    head2Body.targetFrame = "body";
-    head2Body.setTransform(tf.head2Body);
-    _transformer.pushStaticTransformation(head2Body);    
-
-    //static case
-    /*    base::samples::RigidBodyState lowerDyn2UpperDyn;
-    lowerDyn2UpperDyn.sourceFrame = "lower_dynamixel";
-    lowerDyn2UpperDyn.targetFrame = "upper_dynamixel";
-    lowerDyn2UpperDyn.setTransform(Affine3d(Affine3d::Identity()));
-    transformer.pushStaticTransformation(lowerDyn2UpperDyn);    */
-
     gotNewMap = false;
     justStarted = true;
     sweepStatus = SWEEP_UNTRACKED;
@@ -179,44 +171,8 @@ void ServoingTask::updateHook()
 {
     base::samples::RigidBodyState odometry_reading;
     while( _odometry_samples.read(odometry_reading, false) == RTT::NewData )
-    {
 	_transformer.pushDynamicTransformation( odometry_reading );	
-    }
 
-    base::samples::RigidBodyState dynamixel_reading;
-    while( _dynamixel_samples.read(dynamixel_reading, false) == RTT::NewData )
-    {
-	_transformer.pushDynamicTransformation( dynamixel_reading );	
-
-	Vector3d angles = dynamixel_reading.orientation.toRotationMatrix().eulerAngles(2,1,0);
-	dynamixelMin = std::min(dynamixelMin, angles[2]);
-	dynamixelMax = std::max(dynamixelMax, angles[2]);
-
-	dynamixelAngle = angles[2];
-
-	//track sweep status
-	switch (sweepStatus)
-	{
-	    case SWEEP_DONE:
-	    case SWEEP_UNTRACKED:
-		break;
-	    case WAITING_FOR_START:
-		if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
-		{
-		    std::cout << "Sweep started" << std::endl; 
-		    sweepStatus = SWEEP_STARTED;
-		}
-		break;
-	    case SWEEP_STARTED:
-		if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
-		{
-		    std::cout << "Sweep done" << std::endl; 
-		    sweepStatus = SWEEP_DONE;
-		}
-		break;
-	}
-    }
-    
     ServoingTaskBase::updateHook();
 
     if (gotNewMap)
@@ -239,10 +195,7 @@ void ServoingTask::updateHook()
     }
 
     if(_heading.readNewest(globalHeading) == RTT::NoData)
-    {
-        std::cout << "No Heading" << std::endl;
         return;
-    }
     
     // Plan only if required and if we have a new map
     if(_trajectory.connected() || (gotNewMap || sweepStatus == SWEEP_DONE)) {
