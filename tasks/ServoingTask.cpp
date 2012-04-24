@@ -234,6 +234,12 @@ void ServoingTask::updateHook()
 		_vfhDebug.write(vfhServoing->getVFHStarDebugData(waypoints));
 	    if (_debugVfhTree.connected())
 		_debugVfhTree.write(vfhServoing->getTree());
+           
+           if(waypoints.empty())
+           {
+               std::cout << "Could not compute trajectory towards target horizon" << std::endl;
+               return exception();
+           }
 	} else {	    
 	    //we need to wait a full sweep
 	    if(sweepStatus == SWEEP_UNTRACKED)
