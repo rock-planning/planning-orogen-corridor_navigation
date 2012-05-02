@@ -97,6 +97,10 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     if(!_body2odometry.get(ts, body2Odo, true))
 	return;
 
+    gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
+
+    //not this has to be done after addLaserScann
+    //as addLaserScan moves the map to the robot position
     if(justStarted)
     {
         TreeSearchConf search_conf(_search_conf.value());
@@ -106,8 +110,6 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         justStarted = false;
     } 
 
-    gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
-    
     base::samples::RigidBodyState laser2Map;
     laser2Map.setTransform(mapGenerator->getLaser2Map());
     laser2Map.sourceFrame = "laser";
