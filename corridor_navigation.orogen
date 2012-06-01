@@ -2,7 +2,7 @@ name "corridor_navigation"
 version "0.1"
 
 using_library "vfh_star"
-using_library "asguard"
+#using_library "asguard"
 using_library 'corridor_navigation'
 import_types_from "base"
 import_types_from "corridor_planner"
