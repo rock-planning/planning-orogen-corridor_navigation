@@ -44,11 +44,19 @@ void FollowingTask::updateHook()
     if (status == RTT::NewData)
         search->setCorridor(problem.corridor, problem.desiredFinalHeading);
     else if (status == RTT::NoData)
+    {
+	//write empty trajectory to stop robot
+	_trajectory.write(base::geometry::Spline<3>());
         return;
-
+    }
+    
     base::samples::RigidBodyState current_pose;
     if (_pose_samples.readNewest(current_pose) == RTT::NoData)
+    {
+	//write empty trajectory to stop robot
+	_trajectory.write(base::geometry::Spline<3>());
         return;
+    }
     try
     {
         base::Time start = base::Time::now();
@@ -57,6 +65,9 @@ void FollowingTask::updateHook()
             search->getTrajectory(base::Pose(current_pose.position, current_pose.orientation), _search_horizon.get());
         if (result.second)
         {
+	    std::cout << "Success: Horizon reached" << std::endl;
+	    //write empty trajectory to stop robot
+	    _trajectory.write(base::geometry::Spline<3>());
             stop();
             return;
         }
@@ -64,14 +75,20 @@ void FollowingTask::updateHook()
         base::Time planning_time = (base::Time::now() - start);
         outputDebuggingTypes(planning_time);
 
-        if (result.first.isEmpty())
+        if (result.first.isEmpty()) {
+	    //write empty trajectory to stop robot
+	    _trajectory.write(base::geometry::Spline<3>());
+	    std::cout << "Error Could not compute path to horizon" << std::endl;
             return exception(NO_VIABLE_PATH);
+	}
         _trajectory.write(result.first);
 
     }
     catch(std::exception const& e)
     {
         outputDebuggingTypes(base::Time());
+	//write empty trajectory to stop robot
+	_trajectory.write(base::geometry::Spline<3>());
         throw;
     }
 
@@ -98,10 +115,12 @@ void FollowingTask::outputDebuggingTypes(base::Time const& planning_time)
 // {
 //     FollowingTaskBase::errorHook();
 // }
-// void FollowingTask::stopHook()
-// {
-//     FollowingTaskBase::stopHook();
-// }
+void FollowingTask::stopHook()
+{
+    //write empty trajectory to stop robot
+    _trajectory.write(base::geometry::Spline<3>());
+    FollowingTaskBase::stopHook();
+}
 // void FollowingTask::cleanupHook()
 // {
 //     FollowingTaskBase::cleanupHook();

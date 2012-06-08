@@ -261,9 +261,12 @@ void ServoingTask::updateHook()
 // void ServoingTask::errorHook()
 // {
 // }
-// void ServoingTask::stopHook()
-// {
-// }
+void ServoingTask::stopHook()
+{
+    //write empty trajectory to stop robot
+    _trajectory.write(base::geometry::Spline<3>());
+    ServoingTaskBase::stopHook();
+}
 // void ServoingTask::cleanupHook()
 // {
 // }
