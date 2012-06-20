@@ -197,7 +197,11 @@ void ServoingTask::updateHook()
     }
 
     if(_heading.readNewest(globalHeading) == RTT::NoData)
+    {
+	//write empty trajectory to stop robot
+	_trajectory.write(base::geometry::Spline<3>());
         return;
+    }
     
     // Plan only if required and if we have a new map
     if(_trajectory.connected() || (gotNewMap || sweepStatus == SWEEP_DONE)) {
