@@ -32,7 +32,7 @@ task_context "ServoingTask" do
     output_port("segmented", "bool").
 	doc "debug port for log replay"
 
-    output_port("trajectory", "/base/geometry/Spline<3>")
+    output_port("trajectory", "std::vector</base/Trajectory>")
 
     output_port("gridDump", "vfh_star/GridDump")
 
@@ -82,7 +82,7 @@ task_context "FollowingTask" do
     input_port('pose_samples', '/base/samples/RigidBodyState').
         doc 'the current robot pose'
 
-    output_port('trajectory', '/base/geometry/Spline<3>').
+    output_port('trajectory', 'std::vector</base/Trajectory>').
         doc 'the generated trajectory'
 
     output_port('debugVfhTree', '/vfh_star/Tree').

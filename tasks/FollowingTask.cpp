@@ -46,7 +46,7 @@ void FollowingTask::updateHook()
     else if (status == RTT::NoData)
     {
 	//write empty trajectory to stop robot
-	_trajectory.write(base::geometry::Spline<3>());
+	_trajectory.write(std::vector<base::Trajectory>());
         return;
     }
     
@@ -54,7 +54,7 @@ void FollowingTask::updateHook()
     if (_pose_samples.readNewest(current_pose) == RTT::NoData)
     {
 	//write empty trajectory to stop robot
-	_trajectory.write(base::geometry::Spline<3>());
+	_trajectory.write(std::vector<base::Trajectory>());
         return;
     }
     try
@@ -67,7 +67,7 @@ void FollowingTask::updateHook()
         {
 	    std::cout << "Success: Horizon reached" << std::endl;
 	    //write empty trajectory to stop robot
-	    _trajectory.write(base::geometry::Spline<3>());
+	    _trajectory.write(std::vector<base::Trajectory>());
             stop();
             return;
         }
@@ -77,18 +77,22 @@ void FollowingTask::updateHook()
 
         if (result.first.isEmpty()) {
 	    //write empty trajectory to stop robot
-	    _trajectory.write(base::geometry::Spline<3>());
+	    _trajectory.write(std::vector<base::Trajectory>());
 	    std::cout << "Error Could not compute path to horizon" << std::endl;
             return exception(NO_VIABLE_PATH);
 	}
-        _trajectory.write(result.first);
+	std::vector<base::Trajectory> tr;
+	tr.resize(1);
+	tr[0].speed = 1;
+	tr[0].spline = result.first;
+        _trajectory.write(tr);
 
     }
     catch(std::exception const& e)
     {
         outputDebuggingTypes(base::Time());
 	//write empty trajectory to stop robot
-	_trajectory.write(base::geometry::Spline<3>());
+	_trajectory.write(std::vector<base::Trajectory>());
         throw;
     }
 
@@ -118,7 +122,7 @@ void FollowingTask::outputDebuggingTypes(base::Time const& planning_time)
 void FollowingTask::stopHook()
 {
     //write empty trajectory to stop robot
-    _trajectory.write(base::geometry::Spline<3>());
+    _trajectory.write(std::vector<base::Trajectory>());
     FollowingTaskBase::stopHook();
 }
 // void FollowingTask::cleanupHook()

@@ -199,7 +199,7 @@ void ServoingTask::updateHook()
     if(_heading.readNewest(globalHeading) == RTT::NoData)
     {
 	//write empty trajectory to stop robot
-	_trajectory.write(base::geometry::Spline<3>());
+	_trajectory.write(std::vector<base::Trajectory>());
         return;
     }
     
@@ -233,7 +233,11 @@ void ServoingTask::updateHook()
 	    
 	    base::Time end = base::Time::now();
 
-	    _trajectory.write(TreeSearch::waypointsToSpline(waypoints));
+	    std::vector<base::Trajectory> tr;
+	    tr.resize(1);
+	    tr[0].speed = 1;
+	    tr[0].spline = TreeSearch::waypointsToSpline(waypoints);
+	    _trajectory.write(tr);
 	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
 
 	    if (_vfhDebug.connected())
@@ -254,8 +258,7 @@ void ServoingTask::updateHook()
 		sweepStatus = WAITING_FOR_START;
 	    }
 
-	    std::vector<base::Waypoint> waypoints;	    
-	    _trajectory.write(TreeSearch::waypointsToSpline(waypoints));
+	    _trajectory.write(std::vector<base::Trajectory>());
 	}
     }
 
@@ -268,7 +271,7 @@ void ServoingTask::updateHook()
 void ServoingTask::stopHook()
 {
     //write empty trajectory to stop robot
-    _trajectory.write(base::geometry::Spline<3>());
+    _trajectory.write(std::vector<base::Trajectory>());
     ServoingTaskBase::stopHook();
 }
 // void ServoingTask::cleanupHook()
