@@ -5,6 +5,7 @@
 #include <corridor_navigation/VFHServoing.hpp>
 #include <vfh_star/TraversabilityMapGenerator.h>
 #include <Eigen/Core>
+#include <envire/maps/MLSGrid.hpp>
 
 namespace corridor_navigation {
     
@@ -19,6 +20,10 @@ namespace corridor_navigation {
     {
 	friend class ServoingTaskBase;
     protected:
+	/** Handler for the setMap operation
+         */
+        virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
+	
 	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
 	vfh_star::TraversabilityMapGenerator *mapGenerator;
@@ -57,6 +62,17 @@ namespace corridor_navigation {
         void updateSweepingState(Eigen::Affine3d const& sweep);
 	
 	double dynamixelAngle;
+	
+	/**
+	 * Apriori map of the environment
+	 * */
+	envire::MLSGrid::Ptr aprioriMap; 
+	
+	/**
+	 * Transformation from apriori map to body frame
+	 * */
+	Eigen::Affine3d aprioriMap2Body;
+	
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");

@@ -6,6 +6,7 @@ using_library "vfh_star"
 using_library 'corridor_navigation'
 import_types_from "base"
 import_types_from "corridor_planner"
+import_types_from "envire"
 
 import_types_from "vfh_star/Types.h"
 import_types_from "vfh_star/TreeSearch.h"
@@ -43,6 +44,13 @@ task_context "ServoingTask" do
 
     output_port('debug_laser_frame', '/base/samples/RigidBodyState').
 	doc 'debug frame. This is the frame of the laser scan in respect to the map.'
+
+    operation('setMap').
+	argument('map', 'std/vector</envire/BinaryEvent>').
+	argument('mapId', 'std/string').
+	argument('mapPose', '/base/samples/RigidBodyState').
+	returns('bool')
+	doc("Sets an apriori map of the environment of the robot. This function must be be called prior to starting the component.")
 
     ##########################
     # transformer parameters

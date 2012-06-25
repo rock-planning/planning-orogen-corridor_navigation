@@ -1,6 +1,7 @@
 #include "ServoingTask.hpp"
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
+#include <envire/maps/MLSGrid.hpp>
 
 using namespace corridor_navigation;
 using namespace vfh_star;
@@ -97,18 +98,29 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     if(!_body2odometry.get(ts, body2Odo, true))
 	return;
 
-    gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
-
-    //not this has to be done after addLaserScann
-    //as addLaserScan moves the map to the robot position
+    mapGenerator->moveMapIfRobotNearBoundary(body2Odo.translation());
+    
+    //not this has to be done after moveMapIfRobotNearBoundary
+    //as moveMapIfRobotNearBoundary moves the map to the robot position
     if(justStarted)
     {
         TreeSearchConf search_conf(_search_conf.value());
         double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+	
+	if(aprioriMap)
+	{
+	    const Eigen::Affine3d apriori2LaserGrid(body2Odo * aprioriMap2Body);
+	    mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
+	    
+	    aprioriMap.reset(0);
+	}
+	
         //TODO calulate distance to laser beam inpackt based on laser angle
         mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(body2Odo), val, val, 0.3);
         justStarted = false;
     } 
+
+    gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
 
     base::samples::RigidBodyState laser2Map;
     laser2Map.setTransform(mapGenerator->getLaser2Map());
@@ -119,7 +131,21 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     _debug_laser_frame.write(laser2Map);
 }
 
-
+bool ServoingTask::setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose)
+{
+    if(!justStarted)
+	return false;
+    
+    envire::Environment env;
+    env.applyEvents(map);
+    
+    aprioriMap = env.getItem< envire::MLSGrid >(mapId);
+    if (!aprioriMap)
+        return false;
+    
+    aprioriMap2Body = mapPose.getTransform().inverse();
+    return true;
+}
 
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See ServoingTask.hpp for more detailed
@@ -141,6 +167,8 @@ bool ServoingTask::configureHook()
     
     mapGenerator->setBoundarySize(boundarySize);
     mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
+
+    justStarted = true;
 
     return true;
 }
@@ -270,6 +298,8 @@ void ServoingTask::updateHook()
 // }
 void ServoingTask::stopHook()
 {
+    justStarted = true;
+
     //write empty trajectory to stop robot
     _trajectory.write(std::vector<base::Trajectory>());
     ServoingTaskBase::stopHook();
