@@ -257,14 +257,10 @@ void ServoingTask::updateHook()
 	    base::Time start = base::Time::now();
 
 	    std::vector<base::Waypoint> waypoints;	    
-	    waypoints = vfhServoing->getWaypoints(curPose, globalHeading, _search_horizon.get());
 	    
 	    base::Time end = base::Time::now();
 
-	    std::vector<base::Trajectory> tr;
-	    tr.resize(1);
-	    tr[0].speed = 1;
-	    tr[0].spline = TreeSearch::waypointsToSpline(waypoints);
+	    std::vector<base::Trajectory> tr = vfhServoing->getTrajectories(curPose, globalHeading, _search_horizon.get());
 	    _trajectory.write(tr);
 	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
 
@@ -273,7 +269,7 @@ void ServoingTask::updateHook()
 	    if (_debugVfhTree.connected())
 		_debugVfhTree.write(vfhServoing->getTree());
            
-           if(waypoints.empty())
+           if(tr.empty())
            {
                std::cout << "Could not compute trajectory towards target horizon" << std::endl;
                return exception();
