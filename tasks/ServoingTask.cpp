@@ -29,7 +29,7 @@ ServoingTask::ServoingTask(std::string const& name)
     vfhServoing->setNewTraversabilityGrid(trGrid);
     gotNewMap = false;
     
-    body2Odo = Affine3d::Identity();
+    bodyCenter2Odo = Affine3d::Identity();
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
@@ -89,16 +89,20 @@ void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
 
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
-    Eigen::Affine3d laser2Body;
-    if(!_laser2body.get(ts, laser2Body, true))
+    Eigen::Affine3d laser2BodyCenter;
+    if(!_laser2body_center.get(ts, laser2BodyCenter, true))
 	return;
 
-    updateSweepingState(laser2Body);
+    updateSweepingState(laser2BodyCenter);
     
-    if(!_body2odometry.get(ts, body2Odo, true))
+    if(!_body_center2odometry.get(ts, bodyCenter2Odo, true))
 	return;
 
-    mapGenerator->moveMapIfRobotNearBoundary(body2Odo.translation());
+    Eigen::Affine3d bodyCenter2Body;
+    if(!_body_center2body.get(ts, bodyCenter2Body, true))
+	return;
+
+    mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation());
     
     //not this has to be done after moveMapIfRobotNearBoundary
     //as moveMapIfRobotNearBoundary moves the map to the robot position
@@ -109,18 +113,20 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 	
 	if(aprioriMap)
 	{
-	    const Eigen::Affine3d apriori2LaserGrid(body2Odo * aprioriMap2Body);
+	    const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
+	    const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
 	    mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
 	    
 	    aprioriMap.reset(0);
+	    gotNewMap = true;
 	}
 	
         //TODO calulate distance to laser beam inpackt based on laser angle
-        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(body2Odo), val, val, 0.3);
+        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, 0.3);
         justStarted = false;
     } 
 
-    gotNewMap |= mapGenerator->addLaserScan(scan_reading, body2Odo, laser2Body);
+    gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
 
     base::samples::RigidBodyState laser2Map;
     laser2Map.setTransform(mapGenerator->getLaser2Map());
@@ -187,7 +193,7 @@ bool ServoingTask::startHook()
 
     vfhServoing->setNewTraversabilityGrid(trGrid);
     
-    body2Odo = Affine3d::Identity();
+    bodyCenter2Odo = Affine3d::Identity();
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
@@ -210,7 +216,7 @@ void ServoingTask::updateHook()
 	mapGenerator->computeNewMap();
 
 	TreeSearchConf search_conf(_search_conf.value());
-	const base::Pose curPose(body2Odo);
+	const base::Pose curPose(bodyCenter2Odo);
 	const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
 	//mark all unknown beside the robot as obstacle, but none in front of the robot
 	mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
@@ -236,7 +242,7 @@ void ServoingTask::updateHook()
 	//notify the servoing that there is a new map
 	vfhServoing->setNewTraversabilityGrid(trGrid);
 	
-	const base::Pose curPose(body2Odo);
+	const base::Pose curPose(bodyCenter2Odo);
 	
 	vfhServoing->clearDebugData();
 	

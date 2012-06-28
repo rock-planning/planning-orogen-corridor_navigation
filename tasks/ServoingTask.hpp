@@ -39,7 +39,7 @@ namespace corridor_navigation {
 	void copyGrid();
 	
 	///Last transformation from body to odometry
-	Eigen::Affine3d body2Odo;
+	Eigen::Affine3d bodyCenter2Odo;
 	
 	/** heading, where the robot should drive */
 	double globalHeading;
