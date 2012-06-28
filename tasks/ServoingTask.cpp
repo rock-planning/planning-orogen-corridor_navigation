@@ -98,7 +98,6 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     if(!_body_center2odometry.get(ts, bodyCenter2Odo, true))
 	return;
 
-    Eigen::Affine3d bodyCenter2Body;
     if(!_body_center2body.get(ts, bodyCenter2Body, true))
 	return;
 
@@ -266,7 +265,7 @@ void ServoingTask::updateHook()
 	    
 	    base::Time end = base::Time::now();
 
-	    std::vector<base::Trajectory> tr = vfhServoing->getTrajectories(curPose, globalHeading, _search_horizon.get());
+	    std::vector<base::Trajectory> tr = vfhServoing->getTrajectories(curPose, globalHeading, _search_horizon.get(), bodyCenter2Body);
 	    _trajectory.write(tr);
 	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
 

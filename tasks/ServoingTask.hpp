@@ -62,6 +62,7 @@ namespace corridor_navigation {
         void updateSweepingState(Eigen::Affine3d const& sweep);
 	
 	double dynamixelAngle;
+	Eigen::Affine3d bodyCenter2Body;
 	
 	/**
 	 * Apriori map of the environment
