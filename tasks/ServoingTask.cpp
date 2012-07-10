@@ -173,6 +173,8 @@ bool ServoingTask::configureHook()
     mapGenerator->setBoundarySize(boundarySize);
     mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
 
+    failCount = _fail_count.get();
+
     justStarted = true;
 
     return true;
@@ -186,6 +188,7 @@ bool ServoingTask::startHook()
     gotNewMap = false;
     justStarted = true;
     sweepStatus = SWEEP_UNTRACKED;
+    noTrCounter = 0;
 
     mapGenerator->clearMap();
     copyGrid();
@@ -277,8 +280,15 @@ void ServoingTask::updateHook()
            if(tr.empty())
            {
                std::cout << "Could not compute trajectory towards target horizon" << std::endl;
-               return exception();
-           }
+	       
+	       noTrCounter++;
+	       if(noTrCounter > failCount)
+		   return exception();
+           } 
+	   else
+	   {
+	       noTrCounter = 0;
+	   }
 	} else {	    
 	    //we need to wait a full sweep
 	    if(sweepStatus == SWEEP_UNTRACKED)

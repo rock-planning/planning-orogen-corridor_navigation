@@ -72,6 +72,10 @@ task_context "ServoingTask" do
     property('search_horizon', 'double').
         doc 'the search horizon, in meters'
 
+    property('fail_count',  'int32_t', 1).
+    	doc('The number of times in a row where no trajectorie could be computed, that makes the task fail')
+
+
     needs_configuration
     port_driven 'scan_samples'
     worstcase_processing_time 0.3	
