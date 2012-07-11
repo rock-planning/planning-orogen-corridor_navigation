@@ -296,8 +296,10 @@ void ServoingTask::updateHook()
 		std::cout << "Waiting until sweep is completed" << std::endl; 
 		sweepStatus = WAITING_FOR_START;
 	    }
-
-	    _trajectory.write(std::vector<base::Trajectory>());
+	    //do not write an empty trajectory here
+	    //if we reached this code path we allready
+	    //waited for a whole sweep and a valid
+	    //trajectory was planned.
 	}
     }
 
