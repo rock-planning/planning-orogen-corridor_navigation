@@ -174,6 +174,7 @@ bool ServoingTask::configureHook()
     mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
 
     failCount = _fail_count.get();
+    unknownRetryCount = _unknown_retry_count.get();
 
     justStarted = true;
 
@@ -189,6 +190,7 @@ bool ServoingTask::startHook()
     justStarted = true;
     sweepStatus = SWEEP_UNTRACKED;
     noTrCounter = 0;
+    unknownTrCounter = 0;
 
     mapGenerator->clearMap();
     copyGrid();
@@ -259,16 +261,14 @@ void ServoingTask::updateHook()
 	//or if we can not gather any more information
 	if(frontArealStats.averageCertainty > 0.3 || sweepStatus == SWEEP_DONE)
 	{
-	    if(sweepStatus == SWEEP_DONE)
-		sweepStatus = SWEEP_UNTRACKED;
-
 	    base::Time start = base::Time::now();
 
 	    std::vector<base::Waypoint> waypoints;	    
 	    
+	    std::vector<base::Trajectory> tr;
+	    VFHServoing::ServoingStatus status = vfhServoing->getTrajectories(tr, curPose, globalHeading, _search_horizon.get(), bodyCenter2Body);
 	    base::Time end = base::Time::now();
 
-	    std::vector<base::Trajectory> tr = vfhServoing->getTrajectories(curPose, globalHeading, _search_horizon.get(), bodyCenter2Body);
 	    _trajectory.write(tr);
 	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
 
@@ -277,18 +277,37 @@ void ServoingTask::updateHook()
 	    if (_debugVfhTree.connected())
 		_debugVfhTree.write(vfhServoing->getTree());
            
-           if(tr.empty())
-           {
-               std::cout << "Could not compute trajectory towards target horizon" << std::endl;
-	       
-	       noTrCounter++;
-	       if(noTrCounter > failCount)
-		   return exception();
-           } 
-	   else
-	   {
-	       noTrCounter = 0;
-	   }
+	    if(status == VFHServoing::TRAJECTORY_THROUGH_UNKNOWN)
+	    {
+		if(sweepStatus == SWEEP_DONE)
+		    unknownTrCounter++;
+		
+		if(unknownTrCounter > unknownRetryCount)
+		{
+		    std::cout << "Quitting, trying to drive through unknown terrain" << std::endl;
+		    return exception(TRAJECTORY_THROUGH_UNKNOWN);
+		}
+	    }
+	    else
+	    {
+		unknownTrCounter = 0;
+	    }
+		
+	    if(status == VFHServoing::NO_SOLUTION)
+	    {
+		std::cout << "Could not compute trajectory towards target horizon" << std::endl;
+		
+		noTrCounter++;
+		if(noTrCounter > failCount)
+		    return exception(NO_SOLUTION);
+	    } 
+	    else
+	    {
+		noTrCounter = 0;
+	    }
+	    
+	    if(sweepStatus == SWEEP_DONE)
+		sweepStatus = SWEEP_UNTRACKED;
 	} else {	    
 	    //we need to wait a full sweep
 	    if(sweepStatus == SWEEP_UNTRACKED)

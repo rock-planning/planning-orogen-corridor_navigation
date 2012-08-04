@@ -54,6 +54,13 @@ namespace corridor_navigation {
 	///Maximum number of planning tries that may fail.
 	int failCount;
 
+	/**How often the trajectorie went through unknow terrain
+	* and was cut down
+	*/
+	int unknownTrCounter;
+	///Max number of sweep to wait in case of trajectory through unknown terrain
+	int unknownRetryCount;
+	
 	envire::Environment env;
 
 	envire::FrameNode *gridPos;
