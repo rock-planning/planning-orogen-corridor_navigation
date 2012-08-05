@@ -103,7 +103,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 
     mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation());
     
-    //not this has to be done after moveMapIfRobotNearBoundary
+    //note this has to be done after moveMapIfRobotNearBoundary
     //as moveMapIfRobotNearBoundary moves the map to the robot position
     if(justStarted)
     {
@@ -246,12 +246,10 @@ void ServoingTask::updateHook()
 	//notify the servoing that there is a new map
 	vfhServoing->setNewTraversabilityGrid(trGrid);
 	
-	const base::Pose curPose(bodyCenter2Odo);
-	
 	vfhServoing->clearDebugData();
 	
-	base::Pose frontArea(curPose);
-	frontArea.position += curPose.orientation * Vector3d(0, 0.5, 0);
+	base::Pose frontArea(bodyCenter2Odo);
+	frontArea.position += frontArea.orientation * Vector3d(0, 0.5, 0);
 	vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
 	
 	//copy data to envire grid
@@ -262,18 +260,20 @@ void ServoingTask::updateHook()
 	if(frontArealStats.averageCertainty > 0.3 || sweepStatus == SWEEP_DONE)
 	{
 	    base::Time start = base::Time::now();
-
-	    std::vector<base::Waypoint> waypoints;	    
-	    
 	    std::vector<base::Trajectory> tr;
-	    VFHServoing::ServoingStatus status = vfhServoing->getTrajectories(tr, curPose, globalHeading, _search_horizon.get(), bodyCenter2Body);
+	    
+	    //set correct Z value according to the map
+	    Eigen::Affine3d bodyCenter2Odo_zCorrected(bodyCenter2Odo);
+	    mapGenerator->getZCorrection(bodyCenter2Odo_zCorrected);
+	    
+	    VFHServoing::ServoingStatus status = vfhServoing->getTrajectories(tr, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
 	    base::Time end = base::Time::now();
 
 	    _trajectory.write(tr);
 	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
 
 	    if (_vfhDebug.connected())
-		_vfhDebug.write(vfhServoing->getVFHStarDebugData(waypoints));
+		_vfhDebug.write(vfhServoing->getVFHStarDebugData(std::vector<base::Waypoint>()));
 	    if (_debugVfhTree.connected())
 		_debugVfhTree.write(vfhServoing->getTree());
            
