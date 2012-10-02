@@ -4,6 +4,7 @@
 #include <corridor_navigation/VFHFollowing.hpp>
 
 using namespace corridor_navigation;
+using namespace std;
 
 FollowingTask::FollowingTask(std::string const& name, TaskCore::TaskState initial_state)
     : FollowingTaskBase(name, initial_state)
