@@ -30,7 +30,7 @@ AngleIntervals getNextPossibleDirections(const vfh_star::TreeNode& current_node,
             else if (to < 0)
                 to += 2 * M_PI;
 
-            result.push_back( make_pair(from, to) );
+            result.push_back( std::make_pair(from, to) );
         }
 
         return result;
@@ -73,7 +73,7 @@ bool TestTask::startHook()
     corridor_navigation::TestConf test_conf = _test_conf.get();
     for (unsigned int i = 0; i < test_conf.angular_windows.size() / 2; ++i)
     {
-        search->allowed_windows.push_back( make_pair(
+        search->allowed_windows.push_back( std::make_pair(
             test_conf.angular_windows[i * 2],
             test_conf.angular_windows[i * 2 + 1]));
     }
