@@ -63,6 +63,7 @@ void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
     dynamixelMax = std::max(dynamixelMax, angles[2]);
 
     dynamixelAngle = angles[2];
+    RTT::log(RTT::Debug) << "tilt angle " << angles[2] << RTT::endlog();
 
     //track sweep status
     switch (sweepStatus)
@@ -73,14 +74,14 @@ void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
         case WAITING_FOR_START:
             if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
             {
-                std::cout << "Sweep started" << std::endl; 
+                RTT::log(RTT::Info) << "Sweep started" << RTT::endlog(); 
                 sweepStatus = SWEEP_STARTED;
             }
             break;
         case SWEEP_STARTED:
             if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
             {
-                std::cout << "Sweep done" << std::endl; 
+                RTT::log(RTT::Info) << "Sweep done" << RTT::endlog(); 
                 sweepStatus = SWEEP_DONE;
             }
             break;
@@ -270,7 +271,7 @@ void ServoingTask::updateHook()
 	    base::Time end = base::Time::now();
 
 	    _trajectory.write(tr);
-	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
+            RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
 
 	    if (_vfhDebug.connected())
 		_vfhDebug.write(vfhServoing->getVFHStarDebugData(std::vector<base::Waypoint>()));
@@ -284,7 +285,7 @@ void ServoingTask::updateHook()
 		
 		if(unknownTrCounter > unknownRetryCount)
 		{
-		    std::cout << "Quitting, trying to drive through unknown terrain" << std::endl;
+                    RTT::log(RTT::Error) << "Quitting, trying to drive through unknown terrain" << RTT::endlog();
 		    return exception(TRAJECTORY_THROUGH_UNKNOWN);
 		}
 	    }
@@ -295,7 +296,7 @@ void ServoingTask::updateHook()
 		
 	    if(status == VFHServoing::NO_SOLUTION)
 	    {
-		std::cout << "Could not compute trajectory towards target horizon" << std::endl;
+	        RTT::log(RTT::Warning) << "Could not compute trajectory towards target horizon" << RTT::endlog();
 		
 		noTrCounter++;
 		if(noTrCounter > failCount)
@@ -312,7 +313,7 @@ void ServoingTask::updateHook()
 	    //we need to wait a full sweep
 	    if(sweepStatus == SWEEP_UNTRACKED)
 	    {
-		std::cout << "Waiting until sweep is completed" << std::endl; 
+                RTT::log(RTT::Info) << "Waiting until sweep is completed" << RTT::endlog(); 
 		sweepStatus = WAITING_FOR_START;
 	    }
 	    //do not write an empty trajectory here
