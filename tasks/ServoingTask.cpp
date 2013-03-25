@@ -2,6 +2,7 @@
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
 #include <envire/maps/MLSGrid.hpp>
+#include <cmath>
 
 using namespace corridor_navigation;
 using namespace vfh_star;
@@ -126,6 +127,10 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         justStarted = false;
     } 
 
+    if ( _x_fwd.get() ) { 
+        laser2BodyCenter = laser2BodyCenter * Eigen::AngleAxisd(-M_PI / 2.0, Eigen::Vector3d::UnitZ());
+        bodyCenter2Odo = bodyCenter2Odo * Eigen::AngleAxisd(-M_PI / 2.0, Eigen::Vector3d::UnitZ());
+    }
     gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
 
     base::samples::RigidBodyState laser2Map;
