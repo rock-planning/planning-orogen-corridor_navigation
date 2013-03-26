@@ -89,19 +89,36 @@ void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
     }
 }
 
+inline Eigen::Affine3d XFORWARD2YFORWARD(Eigen::Affine3d const& x2x)
+{
+    Eigen::Affine3d y2x(Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ()));
+    Eigen::Affine3d x2y(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
+    return y2x * x2x * x2y;
+}
+
+inline Eigen::Affine3d YFORWARD2XFORWARD(Eigen::Affine3d const& y2y)
+{
+    Eigen::Affine3d y2x(Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ()));
+    Eigen::Affine3d x2y(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
+    return x2y * y2y * y2x;
+}
+
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
     Eigen::Affine3d laser2BodyCenter;
     if(!_laser2body_center.get(ts, laser2BodyCenter, true))
 	return;
 
+    laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
     updateSweepingState(laser2BodyCenter);
     
     if(!_body_center2odometry.get(ts, bodyCenter2Odo, true))
 	return;
+    bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
 
     if(!_body_center2body.get(ts, bodyCenter2Body, true))
 	return;
+    bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
 
     mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation());
     
@@ -127,14 +144,10 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         justStarted = false;
     } 
 
-    if ( _x_fwd.get() ) { 
-        laser2BodyCenter = laser2BodyCenter * Eigen::AngleAxisd(-M_PI / 2.0, Eigen::Vector3d::UnitZ());
-        bodyCenter2Odo = bodyCenter2Odo * Eigen::AngleAxisd(-M_PI / 2.0, Eigen::Vector3d::UnitZ());
-    }
     gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
 
     base::samples::RigidBodyState laser2Map;
-    laser2Map.setTransform(mapGenerator->getLaser2Map());
+    laser2Map.setTransform(YFORWARD2XFORWARD(mapGenerator->getLaser2Map()));
     laser2Map.sourceFrame = "laser";
     laser2Map.targetFrame = "map";
     laser2Map.time = ts;
@@ -237,7 +250,21 @@ void ServoingTask::updateHook()
     {
         vfh_star::GridDump gd;
         mapGenerator->getGridDump(gd);
-        _gridDump.write(gd);
+        vfh_star::GridDump gd_xforward;
+
+        int line_size = GRIDSIZE / GRIDRESOLUTION;
+        int array_size = gd_xforward.height.size();
+        for (int y = 0; y < line_size; ++y)
+            for (int x = 0; x < line_size; ++x)
+            {
+                gd_xforward.height[x * line_size + (line_size - y)] = gd.height[y * line_size + x];
+                gd_xforward.max[x * line_size + (line_size - y)] = gd.max[y * line_size + x];
+                gd_xforward.interpolated[x * line_size + (line_size - y)] = gd.interpolated[y * line_size + x];
+                gd_xforward.traversability[x * line_size + (line_size - y)] = gd.traversability[y * line_size + x];
+            }
+        gd_xforward.gridPositionX = gd.gridPositionY;
+        gd_xforward.gridPositionY = -gd.gridPositionX;
+        _gridDump.write(gd_xforward);
     }
 
     if(_heading.readNewest(globalHeading) == RTT::NoData)
