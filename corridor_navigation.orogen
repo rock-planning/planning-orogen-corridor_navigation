@@ -71,15 +71,14 @@ task_context "ServoingTask" do
         doc('Parametrization of the cost function')
     property('search_horizon', 'double').
         doc 'the search horizon, in meters'
-
     property('fail_count',  'int32_t', 1).
     	doc('The number of times in a row where no trajectorie could be computed, that makes the task fail')
-
     property('unknown_retry_count',  'int32_t', 2).
     	doc('In case the trajectorie goes through unknown terrain, it is cut. This parameter defines how often the task will wait for a sensor sweep to complete before failing.')
-
     property('x_fwd', 'bool', 0).
         doc('set to true to have applied some transformations that should make it work according to x forward convention')
+    property('height_to_ground', 'double', 0).
+        doc 'the distance between the body frame and the ground'
 
     exception_states :no_solution, :trajectory_through_unknown
 

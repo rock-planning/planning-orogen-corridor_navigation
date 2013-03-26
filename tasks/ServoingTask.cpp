@@ -211,6 +211,7 @@ bool ServoingTask::startHook()
     noTrCounter = 0;
     unknownTrCounter = 0;
 
+    mapGenerator->setHeightToGround(_height_to_ground.get());
     mapGenerator->clearMap();
     copyGrid();
 
