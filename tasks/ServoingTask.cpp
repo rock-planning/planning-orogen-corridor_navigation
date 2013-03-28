@@ -304,6 +304,10 @@ void ServoingTask::updateHook()
 	    VFHServoing::ServoingStatus status = vfhServoing->getTrajectories(tr, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
 	    base::Time end = base::Time::now();
 
+            Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
+            for (int i = 0; i < tr.size(); ++i)
+                tr[i].spline.transform(y2x);
+            
 	    _trajectory.write(tr);
             RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
 
