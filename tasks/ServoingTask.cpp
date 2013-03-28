@@ -265,6 +265,7 @@ void ServoingTask::updateHook()
             }
         gd_xforward.gridPositionX = gd.gridPositionY;
         gd_xforward.gridPositionY = -gd.gridPositionX;
+        gd_xforward.gridPositionZ = -gd.gridPositionZ;
         _gridDump.write(gd_xforward);
     }
 
