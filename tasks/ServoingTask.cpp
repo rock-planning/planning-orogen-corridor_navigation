@@ -34,6 +34,9 @@ ServoingTask::ServoingTask(std::string const& name)
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
+
+    vfh_star::TreeSearchConf search_conf;
+    corridor_navigation::VFHServoingConf cost_conf;
 }
 
 ServoingTask::~ServoingTask() {}
@@ -109,16 +112,19 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     if(!_laser2body_center.get(ts, laser2BodyCenter, true))
 	return;
 
-    laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
+    if (_x_forward.get())
+        laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
     updateSweepingState(laser2BodyCenter);
     
     if(!_body_center2odometry.get(ts, bodyCenter2Odo, true))
 	return;
-    bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
+    if (_x_forward.get())
+        bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
 
     if(!_body_center2body.get(ts, bodyCenter2Body, true))
 	return;
-    bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
+    if (_x_forward.get())
+        bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
 
     mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation());
     
@@ -147,7 +153,10 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
 
     base::samples::RigidBodyState laser2Map;
-    laser2Map.setTransform(YFORWARD2XFORWARD(mapGenerator->getLaser2Map()));
+    if (_x_forward.get())
+        laser2Map.setTransform(YFORWARD2XFORWARD(mapGenerator->getLaser2Map()));
+    else
+        laser2Map.setTransform(mapGenerator->getLaser2Map());
     laser2Map.sourceFrame = "laser";
     laser2Map.targetFrame = "map";
     laser2Map.time = ts;
@@ -251,22 +260,29 @@ void ServoingTask::updateHook()
     {
         vfh_star::GridDump gd;
         mapGenerator->getGridDump(gd);
-        vfh_star::GridDump gd_xforward;
 
-        int line_size = GRIDSIZE / GRIDRESOLUTION;
-        int array_size = gd_xforward.height.size();
-        for (int y = 0; y < line_size; ++y)
-            for (int x = 0; x < line_size; ++x)
-            {
-                gd_xforward.height[x * line_size + (line_size - y)] = gd.height[y * line_size + x];
-                gd_xforward.max[x * line_size + (line_size - y)] = gd.max[y * line_size + x];
-                gd_xforward.interpolated[x * line_size + (line_size - y)] = gd.interpolated[y * line_size + x];
-                gd_xforward.traversability[x * line_size + (line_size - y)] = gd.traversability[y * line_size + x];
-            }
-        gd_xforward.gridPositionX = gd.gridPositionY;
-        gd_xforward.gridPositionY = -gd.gridPositionX;
-        gd_xforward.gridPositionZ = -gd.gridPositionZ;
-        _gridDump.write(gd_xforward);
+        if (_x_forward.get())
+        {
+            vfh_star::GridDump gd_xforward;
+            int line_size = GRIDSIZE / GRIDRESOLUTION;
+            int array_size = gd_xforward.height.size();
+            for (int y = 0; y < line_size; ++y)
+                for (int x = 0; x < line_size; ++x)
+                {
+                    gd_xforward.height[x * line_size + (line_size - y)] = gd.height[y * line_size + x];
+                    gd_xforward.max[x * line_size + (line_size - y)] = gd.max[y * line_size + x];
+                    gd_xforward.interpolated[x * line_size + (line_size - y)] = gd.interpolated[y * line_size + x];
+                    gd_xforward.traversability[x * line_size + (line_size - y)] = gd.traversability[y * line_size + x];
+                }
+            gd_xforward.gridPositionX = gd.gridPositionY;
+            gd_xforward.gridPositionY = -gd.gridPositionX;
+            gd_xforward.gridPositionZ = -gd.gridPositionZ;
+            _gridDump.write(gd_xforward);
+        }
+        else
+        {
+            _gridDump.write(gd);
+        }
     }
 
     if(_heading.readNewest(globalHeading) == RTT::NoData)
@@ -305,8 +321,11 @@ void ServoingTask::updateHook()
 	    base::Time end = base::Time::now();
 
             Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
-            for (int i = 0; i < tr.size(); ++i)
-                tr[i].spline.transform(y2x);
+            if (_x_forward.get())
+            {
+                for (int i = 0; i < tr.size(); ++i)
+                    tr[i].spline.transform(y2x);
+            }
             
 	    _trajectory.write(tr);
             RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 

@@ -75,8 +75,8 @@ task_context "ServoingTask" do
     	doc('The number of times in a row where no trajectorie could be computed, that makes the task fail')
     property('unknown_retry_count',  'int32_t', 2).
     	doc('In case the trajectorie goes through unknown terrain, it is cut. This parameter defines how often the task will wait for a sensor sweep to complete before failing.')
-    property('x_fwd', 'bool', 0).
-        doc('set to true to have applied some transformations that should make it work according to x forward convention')
+    property('x_forward', 'bool', true).
+        doc('for backward compatibility only. Set to false to use the Y-forward convention. Rock uses a X-forward convention')
     property('height_to_ground', 'double', 0).
         doc 'the distance between the body frame and the ground'
 
