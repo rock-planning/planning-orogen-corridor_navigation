@@ -119,7 +119,7 @@ task_context "TestTask" do
     property('search_conf',  'vfh_star::TreeSearchConf')
     property('cost_conf',    'vfh_star::VFHStarConf')
     property('initial_pose', 'base/Pose')
-    property('search_horizon', 'double').
+    property('search_horizon', 'double', 2.0).
         doc 'the search horizon, in meters'
 
     output_port('trajectory', '/base/geometry/Spline<3>')
