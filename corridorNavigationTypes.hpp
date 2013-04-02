@@ -12,7 +12,8 @@
 namespace wrappers {
     namespace vfh_star {
         struct TreeNode {
-            int parent;
+            //id for tree flattening and reconstruction
+            int nodeId;
 
             // use the marshalled version of pose from the base typekit
             base::Pose_m pose;
@@ -21,6 +22,7 @@ namespace wrappers {
             double direction;
             double positionTolerance;
             double headingTolerance;
+            std::vector< int > childs;
         };
 
         struct Tree {
