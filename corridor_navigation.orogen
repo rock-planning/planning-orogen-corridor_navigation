@@ -79,6 +79,8 @@ task_context "ServoingTask" do
         doc('for backward compatibility only. Set to false to use the Y-forward convention. Rock uses a X-forward convention')
     property('height_to_ground', 'double', 0).
         doc 'the distance between the body frame and the ground'
+    property('front_shadow_distance','double',0.0).
+        doc 'the region in front of the robot the laser cannot scan. (if 0 it will be computed from the tilt angle)'
 
     exception_states :no_solution, :trajectory_through_unknown
 

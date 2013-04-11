@@ -145,8 +145,16 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 	    gotNewMap = true;
 	}
 	
-        //TODO calulate distance to laser beam inpackt based on laser angle
-        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, 0.3);
+        // closest point where the laser would hit the ground 
+        double impact_point = _front_shadow_distance.get();
+        if ( impact_point <= 0.0 ) {
+            double laser_height = laser2BodyCenter.translation.z() + _height_to_ground.get();
+            impact_point = laser_height * tan(dynamixelMax);
+            RTT::log(RTT::Debug) << "fornt shadow distance from tilt: " << impact_point << RTT::endlog();
+        }
+
+        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, impact_point);
+        
         justStarted = false;
     } 
 
