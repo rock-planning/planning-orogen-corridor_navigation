@@ -176,7 +176,9 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         markedRobotsPlace = true;
     }
 
-    gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
+    // addLaserScan is behind the if, to not add laser scans, when the robot's place is not marked
+    if ( markedRobotsPlace )
+        gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
 
     base::samples::RigidBodyState laser2Map;
     if (_x_forward.get())
