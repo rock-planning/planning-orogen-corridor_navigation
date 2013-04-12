@@ -115,9 +115,11 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     if (_x_forward.get())
         laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
     updateSweepingState(laser2BodyCenter);
-    
-    if(!_body_center2odometry.get(ts, bodyCenter2Odo, true))
-	return;
+
+    Eigen::Affine3d body_center_to_odo;
+    if(!_body_center2odometry.get(ts, body_center_to_odo, true))
+        return;
+    bodyCenter2Odo = body_center_to_odo;
     if (_x_forward.get())
         bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
 
