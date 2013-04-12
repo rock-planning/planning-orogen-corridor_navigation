@@ -66,8 +66,20 @@ void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
     dynamixelMin = std::min(dynamixelMin, angles[2]);
     dynamixelMax = std::max(dynamixelMax, angles[2]);
 
+    if ( !justStarted && (!dynamixelMaxFixed || !dynamixelMinFixed) ) {
+        int dir;
+
+        if (angles[2] > dynamixelAngle) dir = 1;
+        else if ( angles[2] < dynamixelAngle ) dir = -1;
+        else dir = 0;
+
+        if ( dynamixelDir - dir == 2 ) dynamixelMaxFixed = true;
+        else if ( dynamixelDir - dir == -2 ) dynamixelMinFixed = true;
+
+        if ( dir != 0 ) dynamixelDir = dir;
+    }
+
     dynamixelAngle = angles[2];
-    RTT::log(RTT::Debug) << "tilt angle " << angles[2] << RTT::endlog();
 
     //track sweep status
     switch (sweepStatus)
@@ -240,6 +252,10 @@ bool ServoingTask::startHook()
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
+    dynamixelMinFixed = false;
+    dynamixelMaxFixed = false;
+    dynamixelDir = 0;
+
     return true;
 }
 
