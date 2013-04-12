@@ -80,7 +80,7 @@ task_context "ServoingTask" do
     property('height_to_ground', 'double', 0).
         doc 'the distance between the body frame and the ground'
     property('front_shadow_distance','double',0.0).
-        doc 'the region in front of the robot the laser cannot scan. (if 0 it will be computed from the tilt angle)'
+        doc 'the region in front of the laser the laser cannot scan. (if <= 0 it will be computed from the tilt angle)'
 
     exception_states :no_solution, :trajectory_through_unknown
 

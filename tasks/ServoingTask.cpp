@@ -146,31 +146,35 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     //as moveMapIfRobotNearBoundary moves the map to the robot position
     if(justStarted)
     {
-        TreeSearchConf search_conf(_search_conf.value());
-        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
-	
-	if(aprioriMap)
-	{
-	    const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
-	    const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
-	    mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
-	    
-	    aprioriMap.reset(0);
-	    gotNewMap = true;
-	}
-	
-        // closest point where the laser would hit the ground 
-        double impact_point = _front_shadow_distance.get();
-        if ( impact_point <= 0.0 ) {
-            double laser_height = laser2BodyCenter.translation.z() + _height_to_ground.get();
-            impact_point = laser_height * tan(dynamixelMax);
-            RTT::log(RTT::Debug) << "fornt shadow distance from tilt: " << impact_point << RTT::endlog();
+        if ( aprioriMap) {
+            const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
+            const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
+            mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
+
+            aprioriMap.reset(0);
+            gotNewMap = true;
         }
 
-        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, impact_point);
-        
         justStarted = false;
     } 
+
+    if ( !markedRobotsPlace && dynamixelMaxFixed && dynamixelMinFixed ) {
+
+        TreeSearchConf search_conf(_search_conf.value());
+        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+
+        double front_shadow = _front_shadow_distance.get();
+
+        if ( front_shadow <= 0.0 ) {
+            double laser_height = laser2BodyCenter.translation().z() + _height_to_ground.get();
+            front_shadow = laser_height / tan(-dynamixelMin);
+            RTT::log(RTT::Info) << "front shadow distance from tilt: " << front_shadow << RTT::endlog();
+        }
+
+        front_shadow += laser2BodyCenter.translation().y() - val / 2.0;
+        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
+        markedRobotsPlace = true;
+    }
 
     gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
 
@@ -226,6 +230,8 @@ bool ServoingTask::configureHook()
     failCount = _fail_count.get();
     unknownRetryCount = _unknown_retry_count.get();
 
+    markedRobotsPlace = false;
+
     justStarted = true;
 
     return true;
@@ -270,7 +276,7 @@ void ServoingTask::updateHook()
 
     ServoingTaskBase::updateHook();
 
-    if (gotNewMap)
+    if (gotNewMap && markedRobotsPlace)
     {
 	mapGenerator->computeNewMap();
 
