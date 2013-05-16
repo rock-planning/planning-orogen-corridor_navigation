@@ -84,7 +84,11 @@ task_context "ServoingTask" do
     property('entry_window_size', 'int', 30).
         doc 'Maximum number of measures that are taken into accound when '+
           'constructing a cel of the occupancy grid.'
+    property('entry_height_conf', 'int', 0).
+        doc 'Method for constructing each cell height from all the perceived' +
+          ' measures. Codes: 0 - mean, 1 - mean+0.5*std, 2 - median.'
 
+        
 
     exception_states :no_solution, :trajectory_through_unknown
 

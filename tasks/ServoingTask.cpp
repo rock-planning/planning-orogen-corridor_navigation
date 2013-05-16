@@ -253,6 +253,8 @@ bool ServoingTask::startHook()
     mapGenerator->setHeightToGround(_height_to_ground.get());
     mapGenerator->clearMap();
     mapGenerator->setGridEntriesWindowSize(_entry_window_size);
+
+    mapGenerator->setHeightMeasureMethod(_entry_height_conf);
     copyGrid();
 
     vfhServoing->setNewTraversabilityGrid(trGrid);
