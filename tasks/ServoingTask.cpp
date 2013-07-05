@@ -158,7 +158,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         justStarted = false;
     } 
 
-    if ( !markedRobotsPlace && dynamixelMaxFixed && dynamixelMinFixed ) {
+    if ( !markedRobotsPlace){// && dynamixelMaxFixed && dynamixelMinFixed ) {
 
         TreeSearchConf search_conf(_search_conf.value());
         double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
