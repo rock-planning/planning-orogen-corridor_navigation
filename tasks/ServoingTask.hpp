@@ -72,9 +72,15 @@ namespace corridor_navigation {
 	double dynamixelMax;
 	SweepStatus sweepStatus;
         void updateSweepingState(Eigen::Affine3d const& sweep);
+
+        int dynamixelDir;
+        bool dynamixelMaxFixed;
+        bool dynamixelMinFixed;
 	
 	double dynamixelAngle;
 	Eigen::Affine3d bodyCenter2Body;
+
+        bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
 	
 	/**
 	 * Apriori map of the environment

@@ -2,6 +2,7 @@
 #include <vfh_star/VFHStar.h>
 #include <vfh_star/VFH.h>
 #include <envire/maps/MLSGrid.hpp>
+#include <cmath>
 
 using namespace corridor_navigation;
 using namespace vfh_star;
@@ -33,6 +34,9 @@ ServoingTask::ServoingTask(std::string const& name)
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
+
+    vfh_star::TreeSearchConf search_conf;
+    corridor_navigation::VFHServoingConf cost_conf;
 }
 
 ServoingTask::~ServoingTask() {}
@@ -62,6 +66,19 @@ void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
     dynamixelMin = std::min(dynamixelMin, angles[2]);
     dynamixelMax = std::max(dynamixelMax, angles[2]);
 
+    if ( !justStarted && (!dynamixelMaxFixed || !dynamixelMinFixed) ) {
+        int dir;
+
+        if (angles[2] > dynamixelAngle) dir = 1;
+        else if ( angles[2] < dynamixelAngle ) dir = -1;
+        else dir = 0;
+
+        if ( dynamixelDir - dir == 2 ) dynamixelMaxFixed = true;
+        else if ( dynamixelDir - dir == -2 ) dynamixelMinFixed = true;
+
+        if ( dir != 0 ) dynamixelDir = dir;
+    }
+
     dynamixelAngle = angles[2];
 
     //track sweep status
@@ -73,18 +90,32 @@ void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
         case WAITING_FOR_START:
             if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
             {
-                std::cout << "Sweep started" << std::endl; 
+                RTT::log(RTT::Info) << "Sweep started" << RTT::endlog(); 
                 sweepStatus = SWEEP_STARTED;
             }
             break;
         case SWEEP_STARTED:
             if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
             {
-                std::cout << "Sweep done" << std::endl; 
+                RTT::log(RTT::Info) << "Sweep done" << RTT::endlog(); 
                 sweepStatus = SWEEP_DONE;
             }
             break;
     }
+}
+
+inline Eigen::Affine3d XFORWARD2YFORWARD(Eigen::Affine3d const& x2x)
+{
+    Eigen::Affine3d y2x(Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ()));
+    Eigen::Affine3d x2y(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
+    return y2x * x2x * x2y;
+}
+
+inline Eigen::Affine3d YFORWARD2XFORWARD(Eigen::Affine3d const& y2y)
+{
+    Eigen::Affine3d y2x(Eigen::AngleAxisd(M_PI / 2, Eigen::Vector3d::UnitZ()));
+    Eigen::Affine3d x2y(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
+    return x2y * y2y * y2x;
 }
 
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
@@ -93,13 +124,21 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     if(!_laser2body_center.get(ts, laser2BodyCenter, true))
 	return;
 
+    if (_x_forward.get())
+        laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
     updateSweepingState(laser2BodyCenter);
-    
-    if(!_body_center2odometry.get(ts, bodyCenter2Odo, true))
-	return;
+
+    Eigen::Affine3d body_center_to_odo;
+    if(!_body_center2odometry.get(ts, body_center_to_odo, true))
+        return;
+    bodyCenter2Odo = body_center_to_odo;
+    if (_x_forward.get())
+        bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
 
     if(!_body_center2body.get(ts, bodyCenter2Body, true))
 	return;
+    if (_x_forward.get())
+        bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
 
     mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation());
     
@@ -107,28 +146,45 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     //as moveMapIfRobotNearBoundary moves the map to the robot position
     if(justStarted)
     {
-        TreeSearchConf search_conf(_search_conf.value());
-        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
-	
-	if(aprioriMap)
-	{
-	    const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
-	    const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
-	    mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
-	    
-	    aprioriMap.reset(0);
-	    gotNewMap = true;
-	}
-	
-        //TODO calulate distance to laser beam inpackt based on laser angle
-        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, 0.3);
+        if ( aprioriMap) {
+            const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
+            const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
+            mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
+
+            aprioriMap.reset(0);
+            gotNewMap = true;
+        }
+
         justStarted = false;
     } 
 
-    gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
+    if ( !markedRobotsPlace){// && dynamixelMaxFixed && dynamixelMinFixed ) {
+
+        TreeSearchConf search_conf(_search_conf.value());
+        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+
+        double front_shadow = _front_shadow_distance.get();
+
+        if ( front_shadow <= 0.0 ) {
+            double laser_height = laser2BodyCenter.translation().z() + _height_to_ground.get();
+            front_shadow = laser_height / tan(-dynamixelMin);
+            RTT::log(RTT::Info) << "front shadow distance from tilt: " << front_shadow << RTT::endlog();
+        }
+
+        front_shadow += laser2BodyCenter.translation().y() - val / 2.0;
+        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
+        markedRobotsPlace = true;
+    }
+
+    // addLaserScan is behind the if, to not add laser scans, when the robot's place is not marked
+    if ( markedRobotsPlace )
+        gotNewMap |= mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, laser2BodyCenter);
 
     base::samples::RigidBodyState laser2Map;
-    laser2Map.setTransform(mapGenerator->getLaser2Map());
+    if (_x_forward.get())
+        laser2Map.setTransform(YFORWARD2XFORWARD(mapGenerator->getLaser2Map()));
+    else
+        laser2Map.setTransform(mapGenerator->getLaser2Map());
     laser2Map.sourceFrame = "laser";
     laser2Map.targetFrame = "map";
     laser2Map.time = ts;
@@ -176,6 +232,8 @@ bool ServoingTask::configureHook()
     failCount = _fail_count.get();
     unknownRetryCount = _unknown_retry_count.get();
 
+    markedRobotsPlace = false;
+
     justStarted = true;
 
     return true;
@@ -192,7 +250,11 @@ bool ServoingTask::startHook()
     noTrCounter = 0;
     unknownTrCounter = 0;
 
+    mapGenerator->setHeightToGround(_height_to_ground.get());
     mapGenerator->clearMap();
+    mapGenerator->setGridEntriesWindowSize(_entry_window_size);
+
+    mapGenerator->setHeightMeasureMethod(_entry_height_conf);
     copyGrid();
 
     vfhServoing->setNewTraversabilityGrid(trGrid);
@@ -201,6 +263,10 @@ bool ServoingTask::startHook()
     
     dynamixelMin = std::numeric_limits< double >::max();
     dynamixelMax = -std::numeric_limits< double >::max();
+    dynamixelMinFixed = false;
+    dynamixelMaxFixed = false;
+    dynamixelDir = 0;
+
     return true;
 }
 
@@ -215,7 +281,7 @@ void ServoingTask::updateHook()
 
     ServoingTaskBase::updateHook();
 
-    if (gotNewMap)
+    if (gotNewMap && markedRobotsPlace)
     {
 	mapGenerator->computeNewMap();
 
@@ -231,7 +297,29 @@ void ServoingTask::updateHook()
     {
         vfh_star::GridDump gd;
         mapGenerator->getGridDump(gd);
-        _gridDump.write(gd);
+
+        if (_x_forward.get())
+        {
+            vfh_star::GridDump gd_xforward;
+            int line_size = GRIDSIZE / GRIDRESOLUTION;
+            int array_size = gd_xforward.height.size();
+            for (int y = 0; y < line_size; ++y)
+                for (int x = 0; x < line_size; ++x)
+                {
+                    gd_xforward.height[x * line_size + (line_size - y)] = gd.height[y * line_size + x];
+                    gd_xforward.max[x * line_size + (line_size - y)] = gd.max[y * line_size + x];
+                    gd_xforward.interpolated[x * line_size + (line_size - y)] = gd.interpolated[y * line_size + x];
+                    gd_xforward.traversability[x * line_size + (line_size - y)] = gd.traversability[y * line_size + x];
+                }
+            gd_xforward.gridPositionX = gd.gridPositionY;
+            gd_xforward.gridPositionY = -gd.gridPositionX;
+            gd_xforward.gridPositionZ = -gd.gridPositionZ;
+            _gridDump.write(gd_xforward);
+        }
+        else
+        {
+            _gridDump.write(gd);
+        }
     }
 
     if(_heading.readNewest(globalHeading) == RTT::NoData)
@@ -269,8 +357,15 @@ void ServoingTask::updateHook()
 	    VFHServoing::ServoingStatus status = vfhServoing->getTrajectories(tr, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
 	    base::Time end = base::Time::now();
 
+            Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
+            if (_x_forward.get())
+            {
+                for (int i = 0; i < tr.size(); ++i)
+                    tr[i].spline.transform(y2x);
+            }
+            
 	    _trajectory.write(tr);
-	    std::cout << "vfh took " << (end-start).toMicroseconds() << std::endl; 
+            RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
 
 	    if (_vfhDebug.connected())
 		_vfhDebug.write(vfhServoing->getVFHStarDebugData(std::vector<base::Waypoint>()));
@@ -284,7 +379,7 @@ void ServoingTask::updateHook()
 		
 		if(unknownTrCounter > unknownRetryCount)
 		{
-		    std::cout << "Quitting, trying to drive through unknown terrain" << std::endl;
+                    RTT::log(RTT::Error) << "Quitting, trying to drive through unknown terrain" << RTT::endlog();
 		    return exception(TRAJECTORY_THROUGH_UNKNOWN);
 		}
 	    }
@@ -295,7 +390,7 @@ void ServoingTask::updateHook()
 		
 	    if(status == VFHServoing::NO_SOLUTION)
 	    {
-		std::cout << "Could not compute trajectory towards target horizon" << std::endl;
+	        RTT::log(RTT::Warning) << "Could not compute trajectory towards target horizon" << RTT::endlog();
 		
 		noTrCounter++;
 		if(noTrCounter > failCount)
@@ -312,7 +407,7 @@ void ServoingTask::updateHook()
 	    //we need to wait a full sweep
 	    if(sweepStatus == SWEEP_UNTRACKED)
 	    {
-		std::cout << "Waiting until sweep is completed" << std::endl; 
+                RTT::log(RTT::Info) << "Waiting until sweep is completed" << RTT::endlog(); 
 		sweepStatus = WAITING_FOR_START;
 	    }
 	    //do not write an empty trajectory here
