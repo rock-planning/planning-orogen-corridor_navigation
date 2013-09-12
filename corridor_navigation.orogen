@@ -43,7 +43,7 @@ task_context "ServoingTask" do
         doc 'the resulting internal search tree'
 
     output_port('debug_laser_frame', '/base/samples/RigidBodyState').
-	doc 'debug frame. This is the frame of the laser scan in respect to the map.'
+	    doc 'debug frame. This is the frame of the laser scan in respect to the map.'
 
     operation('setMap').
 	argument('map', 'std/vector</envire/BinaryEvent>').
