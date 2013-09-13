@@ -121,6 +121,10 @@ inline Eigen::Affine3d YFORWARD2XFORWARD(Eigen::Affine3d const& y2y)
 
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
+    // Hack: Setting of minDistance within MARS is not yet available.
+    base::samples::LaserScan& scan_reading_non_const = const_cast<base::samples::LaserScan&>(scan_reading);
+    scan_reading_non_const.minRange = _laser_scan_min_range.get() * 1000; // m 2 mm
+    
     Eigen::Affine3d laser2BodyCenter;
     if(!_laser2body_center.get(ts, laser2BodyCenter, true)) {
         RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
@@ -139,7 +143,8 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         return;
     }
     
-    bodyCenter2Odo = Eigen::Affine3d();//body_center_to_odo;
+    bodyCenter2Odo = body_center_to_odo;
+
     if (_x_forward.get()) {
         bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
     }
@@ -187,8 +192,11 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
             front_shadow = laser_height / tan(-dynamixelMin);
             RTT::log(RTT::Info) << "front shadow distance from tilt: " << front_shadow << RTT::endlog();
         }
-    
+        
+        // The area which the robot cannot see will be marked as traversable.
+        // The y-translation is used because of this crazy asguard2rock mapping. 
         front_shadow += laser2BodyCenter.translation().y() - val / 2.0;
+
         mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
         markedRobotsPlace = true;
         RTT::log(RTT::Info) << "Robot place has been marked as traversable" << RTT::endlog();
@@ -198,10 +206,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 
     // Do not add laser scans, when the robot's place is not marked
     if ( markedRobotsPlace ) {
-        Eigen::Affine3d a3d_tmp;
-        a3d_tmp.setIdentity();
-        //std::cout << "IDENTITY MATRIX " << std::endl << a3d_tmp.matrix() << std::endl;
-        gotNewMap |= mapGenerator->addLaserScan(scan_reading, a3d_tmp/*bodyCenter2Odo*/, laser2BodyCenter);
+        gotNewMap |= mapGenerator->addLaserScan(scan_reading_non_const, bodyCenter2Odo, laser2BodyCenter);
         RTT::log(RTT::Info) << "Laserscan has been added" << RTT::endlog();
     } else {
         RTT::log(RTT::Info) << "Laserscan has NOT been added, robot place not marked" << RTT::endlog();   
@@ -307,6 +312,8 @@ bool ServoingTask::startHook()
 
 void ServoingTask::updateHook()
 {
+
+
     base::samples::RigidBodyState odometry_reading;
     while( _odometry_samples.read(odometry_reading, false) == RTT::NewData ) {
         _transformer.pushDynamicTransformation( odometry_reading );	
