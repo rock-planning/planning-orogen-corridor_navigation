@@ -63,6 +63,7 @@ void ServoingTask::copyGrid()
 
 void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
 {
+    std::cout << "updateSweepingState " << std::endl << transformation.matrix() << std::endl;
     Vector3d angles = transformation.rotation().eulerAngles(2,1,0);
     dynamixelMin = std::min(dynamixelMin, angles[2]);
     dynamixelMax = std::max(dynamixelMax, angles[2]);
@@ -183,8 +184,8 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
     if ( !markedRobotsPlace && dynamixelMaxFixed && dynamixelMinFixed ) { //TODO dynamixel.. have been commented out, why?
 
         TreeSearchConf search_conf(_search_conf.value());
-        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
 
+        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
         double front_shadow = _front_shadow_distance.get();
 
         if ( front_shadow <= 0.0 ) {
@@ -197,6 +198,9 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         // The y-translation is used because of this crazy asguard2rock mapping. 
         front_shadow += laser2BodyCenter.translation().y() - val / 2.0;
 
+        // We need enough space for a point-turn
+        val *= 2;
+        RTT::log(RTT::Info) << "Traversable Box width and height: " << val << RTT::endlog();
         mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
         markedRobotsPlace = true;
         RTT::log(RTT::Info) << "Robot place has been marked as traversable" << RTT::endlog();
@@ -312,8 +316,6 @@ bool ServoingTask::startHook()
 
 void ServoingTask::updateHook()
 {
-
-
     base::samples::RigidBodyState odometry_reading;
     while( _odometry_samples.read(odometry_reading, false) == RTT::NewData ) {
         _transformer.pushDynamicTransformation( odometry_reading );	
@@ -329,8 +331,9 @@ void ServoingTask::updateHook()
         const base::Pose curPose(bodyCenter2Odo);
         const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
         //mark all unknown beside the robot as obstacle, but none in front of the robot
-        mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
-        RTT::log(RTT::Info) << "Marks the unknown area besides the robot as obstacles" << RTT::endlog();
+        // Removed: unnecessary restriction of the freedom of movement
+        //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
+        //RTT::log(RTT::Info) << "Marks the unknown area besides the robot as obstacles" << RTT::endlog();
     }
     
     // Output the map
@@ -362,13 +365,13 @@ void ServoingTask::updateHook()
         RTT::log(RTT::Info) << "Output the new map" << RTT::endlog();
     }
 
-    if(_heading.readNewest(globalHeading) == RTT::NoData)
+    if(_heading.read(globalHeading) == RTT::NoData)
     {
         //write empty trajectory to stop robot
         _trajectory.write(std::vector<base::Trajectory>());
         RTT::log(RTT::Info) << "No heading available, stop robot by writing an empty trajectory" << RTT::endlog();
         return;
-    }
+    } 
     
     // Plan only if required and if we have a new map
     if(_trajectory.connected() && (gotNewMap || sweepStatus == SWEEP_DONE)) {
@@ -467,6 +470,9 @@ void ServoingTask::updateHook()
             //waited for a whole sweep and a valid
             //trajectory was planned.
         }
+    } else {
+        RTT::log(RTT::Debug) << "Trajectory port connected: " << _trajectory.connected() << 
+            ", gotNewMap: " << gotNewMap << ", sweepStatus: " << sweepStatus << RTT::endlog();
     }
 
     gotNewMap = false;	
