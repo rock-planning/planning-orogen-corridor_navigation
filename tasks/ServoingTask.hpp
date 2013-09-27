@@ -10,10 +10,10 @@
 namespace corridor_navigation {
     
     enum SweepStatus {
-	WAITING_FOR_START,
-	SWEEP_STARTED,
-	SWEEP_DONE,
-	SWEEP_UNTRACKED,
+        WAITING_FOR_START,
+        SWEEP_STARTED,
+        SWEEP_DONE,
+        SWEEP_UNTRACKED,
     };
     
     class ServoingTask : public ServoingTaskBase
@@ -21,8 +21,8 @@ namespace corridor_navigation {
 	friend class ServoingTaskBase;
     protected:
 	/** Handler for the setMap operation
-         */
-        virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
+     */
+    virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
 	
 	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
@@ -37,6 +37,11 @@ namespace corridor_navigation {
 	 * Copies the data from the map generator to trGrid 
 	 **/
 	void copyGrid();
+
+    /**
+     * Calculates the min and max angle of the dynamixel and sets the sweep status.
+     */	
+    void updateSweepingState(Eigen::Affine3d const& sweep);
 	
 	///Last transformation from body to odometry
 	Eigen::Affine3d bodyCenter2Odo;
@@ -46,7 +51,7 @@ namespace corridor_navigation {
 	
 	bool gotNewMap;
 	
-        // True just after the startHook, and until we get a proper pose update
+    // True just after the startHook, and until we get a proper pose update
 	bool justStarted;
 
 	///Current consecutive planning tries that failed.
@@ -71,16 +76,15 @@ namespace corridor_navigation {
 	double dynamixelMin;
 	double dynamixelMax;
 	SweepStatus sweepStatus;
-        void updateSweepingState(Eigen::Affine3d const& sweep);
 
-        int dynamixelDir;
-        bool dynamixelMaxFixed;
-        bool dynamixelMinFixed;
+    int dynamixelDir;
+    bool dynamixelMaxFixed;
+    bool dynamixelMinFixed;
 	
 	double dynamixelAngle;
 	Eigen::Affine3d bodyCenter2Body;
 
-        bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
+    bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
 	
 	/**
 	 * Apriori map of the environment

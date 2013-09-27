@@ -10,10 +10,14 @@ using namespace vfh_star;
 using namespace Eigen;
 
 ServoingTask::ServoingTask(std::string const& name)
-    : ServoingTaskBase(name)
-{
-    globalHeading = 0;
-    
+    : ServoingTaskBase(name), bodyCenter2Odo(Affine3d::Identity()), globalHeading(0.0), 
+            gotNewMap(false), justStarted(true), noTrCounter(0), failCount(0), unknownTrCounter(0), 
+            unknownRetryCount(0), env(), gridPos(NULL), trGrid(NULL), vfhServoing(NULL), 
+            dynamixelMin(std::numeric_limits< double >::max()), dynamixelMax(-std::numeric_limits< double >::max()), 
+            dynamixelDir(0), dynamixelMaxFixed(false), dynamixelMinFixed(false), dynamixelAngle(0), 
+            bodyCenter2Body(Affine3d::Identity()), markedRobotsPlace(false), aprioriMap(NULL), 
+            aprioriMap2Body(Affine3d::Identity())
+{    
     gridPos = new envire::FrameNode();
     env.attachItem(gridPos);
     
@@ -29,15 +33,6 @@ ServoingTask::ServoingTask(std::string const& name)
 
     vfhServoing = new corridor_navigation::VFHServoing();
     vfhServoing->setNewTraversabilityGrid(trGrid);
-    gotNewMap = false;
-    
-    bodyCenter2Odo = Affine3d::Identity();
-    
-    dynamixelMin = std::numeric_limits< double >::max();
-    dynamixelMax = -std::numeric_limits< double >::max();
-
-    vfh_star::TreeSearchConf search_conf;
-    corridor_navigation::VFHServoingConf cost_conf;
 }
 
 ServoingTask::~ServoingTask() {}
@@ -63,25 +58,42 @@ void ServoingTask::copyGrid()
 
 void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
 {
-    std::cout << "updateSweepingState " << std::endl << transformation.matrix() << std::endl;
     Vector3d angles = transformation.rotation().eulerAngles(2,1,0);
-    dynamixelMin = std::min(dynamixelMin, angles[2]);
-    dynamixelMax = std::max(dynamixelMax, angles[2]);
+
+    double current_servo_angle = angles[2]; 
+    if(current_servo_angle == 0) {
+        RTT::log(RTT::Warning) << "Received servo angle is 0 (not set?)" << std::endl; 
+    }
+    dynamixelMin = std::min(dynamixelMin, current_servo_angle);
+    dynamixelMax = std::max(dynamixelMax, current_servo_angle);
 
     if ( !justStarted && (!dynamixelMaxFixed || !dynamixelMinFixed) ) {
         int dir;
 
-        if (angles[2] > dynamixelAngle) dir = 1;
-        else if ( angles[2] < dynamixelAngle ) dir = -1;
-        else dir = 0;
+        if (current_servo_angle > dynamixelAngle) { 
+            dir = 1;
+            RTT::log(RTT::Info) << "Servo is moving counter clockwise" << RTT::endlog();
+        } else if ( current_servo_angle < dynamixelAngle ) {
+            dir = -1;
+            RTT::log(RTT::Info) << "Servo is moving clockwise" << RTT::endlog();
+        } else {
+            dir = 0;
+        }
 
-        if ( dynamixelDir - dir == 2 ) dynamixelMaxFixed = true;
-        else if ( dynamixelDir - dir == -2 ) dynamixelMinFixed = true;
+        if ( dynamixelDir - dir == 2 ) {
+            RTT::log(RTT::Info) << "Max dynamixel angle found and set to " << dynamixelMax << RTT::endlog();
+            dynamixelMaxFixed = true;
+        } else if ( dynamixelDir - dir == -2 ) {
+            RTT::log(RTT::Info) << "Min dynamixel angle found and set to " << dynamixelMin << RTT::endlog();
+            dynamixelMinFixed = true;
+        }
 
-        if ( dir != 0 ) dynamixelDir = dir;
-    }
+        if ( dir != 0 ) {
+            dynamixelDir = dir;
+        }
+    } else 
 
-    dynamixelAngle = angles[2];
+    dynamixelAngle = current_servo_angle;
 
     //track sweep status
     switch (sweepStatus)
