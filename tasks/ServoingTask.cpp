@@ -329,8 +329,10 @@ bool ServoingTask::startHook()
 void ServoingTask::updateHook()
 {
     base::samples::RigidBodyState odometry_reading;
+    bool received_odometry = false;
     while( _odometry_samples.read(odometry_reading, false) == RTT::NewData ) {
         _transformer.pushDynamicTransformation( odometry_reading );	
+        received_odometry = true;
     }
 
     ServoingTaskBase::updateHook();
@@ -341,7 +343,7 @@ void ServoingTask::updateHook()
 
         TreeSearchConf search_conf(_search_conf.value());
         const base::Pose curPose(bodyCenter2Odo);
-        const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
+        //const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
         //mark all unknown beside the robot as obstacle, but none in front of the robot
         // Removed: unnecessary restriction of the freedom of movement
         //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
@@ -377,13 +379,34 @@ void ServoingTask::updateHook()
         RTT::log(RTT::Info) << "Output the new map" << RTT::endlog();
     }
 
-    if(_heading.read(globalHeading) == RTT::NoData)
+    // Request the heading, which describes a relative orientation, apply it to the current
+    // orientation of the robot within the odometry frame and set globalHeading to the new z-rotation.
+    double relative_heading = 0;
+    RTT::FlowStatus ret = _heading.read(relative_heading);
+    if(ret == RTT::NoData)
     {
         //write empty trajectory to stop robot
         _trajectory.write(std::vector<base::Trajectory>());
         RTT::log(RTT::Info) << "No heading available, stop robot by writing an empty trajectory" << RTT::endlog();
         return;
-    } 
+    } else if (ret == RTT::NewData && received_odometry) {
+        Eigen::Affine3d cur_transf = odometry_reading.getTransform();
+        cur_transf.rotate(Eigen::AngleAxisd(relative_heading, Eigen::Vector3d::UnitZ()));
+        Vector3d angles = cur_transf.rotation().eulerAngles(0,1,2);
+        
+        if(!isnan(angles[2])) {
+            globalHeading = angles[2];
+            RTT::log(RTT::Debug) << "Set global heading to " << globalHeading << RTT::endlog();
+            // Debug output of the received heading.
+            base::samples::RigidBodyState rbs_heading;
+            rbs_heading.setTransform(cur_transf);
+            rbs_heading.sourceFrame = "robot_heading";
+            rbs_heading.targetFrame = "robot";
+            _debug_heading_frame.write(rbs_heading); 
+        }
+    }
+    
+
     
     // Plan only if required and if we have a new map
     if(_trajectory.connected() && (gotNewMap || sweepStatus == SWEEP_DONE)) {
@@ -397,7 +420,7 @@ void ServoingTask::updateHook()
         frontArea.position += frontArea.orientation * Vector3d(0, 0.5, 0);
         vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
 
-        //copy data to envire grid, TODO why?
+        // Seems to copy the grid data to the internal map.
         copyGrid();
         
         //only go onto terrain we know something about

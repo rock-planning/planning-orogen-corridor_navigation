@@ -44,6 +44,9 @@ task_context "ServoingTask" do
 
     output_port('debug_laser_frame', '/base/samples/RigidBodyState').
 	    doc 'debug frame. This is the frame of the laser scan in respect to the map.'
+	   
+    output_port('debug_heading_frame', '/base/samples/RigidBodyState').
+	    doc 'Debug frame describing the heading orientation'	   
 
     operation('setMap').
 	argument('map', 'std/vector</envire/BinaryEvent>').
