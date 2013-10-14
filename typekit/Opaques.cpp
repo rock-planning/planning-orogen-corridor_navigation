@@ -10,7 +10,7 @@
      * pointer.
      */
 
-void addRecursive(::wrappers::vfh_star::Tree& intermediate, const ::vfh_star::TreeNode *node, const vfh_star::TreeNode *finalNode, int &nodeId)
+int addRecursive(::wrappers::vfh_star::Tree& intermediate, const ::vfh_star::TreeNode *node, const vfh_star::TreeNode *finalNode, int &nodeId)
 {    
     if(node == finalNode)
     {
@@ -25,18 +25,16 @@ void addRecursive(::wrappers::vfh_star::Tree& intermediate, const ::vfh_star::Tr
     wrapped_node.direction = node->getDirection();
     wrapped_node.positionTolerance = node->getPositionTolerance();
     wrapped_node.headingTolerance  = node->getHeadingTolerance();
-    
     nodeId++;
     
     for(std::vector< ::vfh_star::TreeNode *>::const_iterator it = node->getChildren().begin();
         it != node->getChildren().end(); it++)
     {
-        //this is the id of the next added child
-        wrapped_node.childs.push_back(nodeId);
-        addRecursive(intermediate, *it, finalNode, nodeId);
-        
+        wrapped_node.childs.push_back(addRecursive(intermediate, *it, finalNode, nodeId));
     }
-    intermediate.nodes.push_back(wrapped_node);
+    
+    intermediate.nodes.push_back(wrapped_node);    
+    return wrapped_node.nodeId;
 };
 
 void orogen_typekits::toIntermediate(::wrappers::vfh_star::Tree& intermediate, ::vfh_star::Tree const& real_type)
