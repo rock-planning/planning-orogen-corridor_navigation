@@ -16,7 +16,7 @@ ServoingTask::ServoingTask(std::string const& name)
             dynamixelMin(std::numeric_limits< double >::max()), dynamixelMax(-std::numeric_limits< double >::max()), 
             dynamixelDir(0), dynamixelMaxFixed(false), dynamixelMinFixed(false), dynamixelAngle(0), 
             bodyCenter2Body(Affine3d::Identity()), markedRobotsPlace(false), aprioriMap(NULL), 
-            aprioriMap2Body(Affine3d::Identity())
+            aprioriMap2Body(Affine3d::Identity()), mLastReplan()
 {    
     gridPos = new envire::FrameNode();
     env.attachItem(gridPos);
@@ -417,15 +417,15 @@ void ServoingTask::updateHook()
         vfhServoing->clearDebugData();
 
         base::Pose frontArea(bodyCenter2Odo);
-        frontArea.position += frontArea.orientation * Vector3d(0, 0.5, 0);
+        frontArea.position += frontArea.orientation * Vector3d(0, 1.5, 0);
         vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
 
         // Seems to copy the grid data to the internal map.
         copyGrid();
         
-        //only go onto terrain we know something about
-        //or if we can not gather any more information
-        if(frontArealStats.averageCertainty > 0.3 || sweepStatus == SWEEP_DONE)
+        // Only go onto terrain we know something about or if we can not gather any more information.
+        if((frontArealStats.averageCertainty >= 0.3 || sweepStatus == SWEEP_DONE) && 
+                (base::Time::now() - mLastReplan).toSeconds() > _replanning_delay.get())
         {
             RTT::log(RTT::Info) << "Create trajectory, area known (" << frontArealStats.averageCertainty << ") and sweep done" << RTT::endlog();
             RTT::log(RTT::Info) << "" << RTT::endlog(); 
@@ -438,6 +438,7 @@ void ServoingTask::updateHook()
             
             VFHServoing::ServoingStatus status = vfhServoing->getTrajectories(tr, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
             base::Time end = base::Time::now();
+            mLastReplan = base::Time::now();
 
             Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
             if (_x_forward.get())

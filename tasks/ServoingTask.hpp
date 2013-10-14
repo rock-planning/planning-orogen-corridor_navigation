@@ -96,6 +96,8 @@ namespace corridor_navigation {
 	 * */
 	Eigen::Affine3d aprioriMap2Body;
 	
+	base::Time mLastReplan;
+	
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");
