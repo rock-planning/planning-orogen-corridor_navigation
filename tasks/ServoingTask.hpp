@@ -10,6 +10,7 @@
 namespace corridor_navigation {
     
     enum SweepStatus {
+	TRACKER_INIT,
         WAITING_FOR_START,
         SWEEP_STARTED,
         SWEEP_DONE,
@@ -41,7 +42,7 @@ namespace corridor_navigation {
     /**
      * Calculates the min and max angle of the dynamixel and sets the sweep status.
      */	
-    void updateSweepingState(Eigen::Affine3d const& sweep);
+
 	
 	///Last transformation from body to odometry
 	Eigen::Affine3d bodyCenter2Odo;
@@ -51,7 +52,7 @@ namespace corridor_navigation {
 	
 	bool gotNewMap;
 	
-    // True just after the startHook, and until we get a proper pose update
+	// True just after the startHook, and until we get a proper pose update
 	bool justStarted;
 
 	///Current consecutive planning tries that failed.
@@ -73,18 +74,57 @@ namespace corridor_navigation {
 	
 	corridor_navigation::VFHServoing *vfhServoing;
     
-	double dynamixelMin;
-	double dynamixelMax;
-	SweepStatus sweepStatus;
-
-    int dynamixelDir;
-    bool dynamixelMaxFixed;
-    bool dynamixelMinFixed;
+	class RangeDataInput 
+	{
+	    
+	    
+	    double sweepMin;
+	    double sweepMax;
+	    
+	    double lastSweepAngle;
+	    
+	    int noSweepCnt;
+	    int noSweepLimit = 30;
+	    
+	    bool foundMin;
+	    bool foundMax;
+	    
+	    SweepStatus sweepStatus;
+	public:
+	    RangeDataInput();
+	    void updateSweepingState(Eigen::Affine3d const& rangeDataInput2Body);
+	    
+	    void reset()
+	    {
+		sweepMin = std::numeric_limits< double >::max();
+		sweepMax = -std::numeric_limits< double >::max();
+		foundMax = false;
+		foundMin = false;
+		lastSweepAngle = 0;
+		noSweepCnt = 0;
+	    }
+	    
+	    SweepStatus getSweepStatus() const
+	    {
+		return sweepStatus;
+	    };
+	    
+	    void triggerSweepTracking()
+	    {
+		if(sweepStatus == SWEEP_DONE || sweepStatus == SWEEP_UNTRACKED)
+		    sweepStatus = WAITING_FOR_START;
+	    };
+	    
+	    bool isSweepDone() const
+	    {
+		return sweepStatus == SWEEP_DONE;
+	    };
+	};
 	
-	double dynamixelAngle;
+	
 	Eigen::Affine3d bodyCenter2Body;
 
-    bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
+	bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
 	
 	/**
 	 * Apriori map of the environment

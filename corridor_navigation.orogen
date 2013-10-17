@@ -15,13 +15,22 @@ import_types_from "corridor_navigation/VFHFollowingConf.hpp"
 import_types_from "corridor_navigation/VFHServoingConf.hpp"
 import_types_from "corridor_navigation/VFHStarDebugData.hpp"
 import_types_from "corridorNavigationTypes.hpp"
+import_types_from "velodyne_lidar/MultilevelLaserScan.h"
 
 typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
 
 task_context "ServoingTask" do
     input_port("scan_samples", "base/samples/LaserScan").
 	needs_reliable_connection.
-        doc "LaserScann"
+        doc "LaserScann of front Scanner"
+
+    input_port("scan_samples_back", "base/samples/LaserScan").
+	needs_reliable_connection.
+        doc "Optional LaserScann of rear scanner"
+
+    input_port("velodyne_scans", "velodyne_lidar::MultilevelLaserScan").
+	needs_reliable_connection.
+        doc 'Optional velodyne scans'
 
     input_port('odometry_samples', '/base/samples/RigidBodyState').
 	needs_reliable_connection.
@@ -63,6 +72,7 @@ task_context "ServoingTask" do
 	transformation("body_center", "body")
 	transformation("body_center", "odometry")
 	transformation("laser", "body_center")
+	transformation("laser_back", "body_center")
 	align_port('scan_samples', 0.025)
 
 	max_latency(0.1)

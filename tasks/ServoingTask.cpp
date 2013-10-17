@@ -12,9 +12,7 @@ using namespace Eigen;
 ServoingTask::ServoingTask(std::string const& name)
     : ServoingTaskBase(name), bodyCenter2Odo(Affine3d::Identity()), globalHeading(0.0), 
             gotNewMap(false), justStarted(true), noTrCounter(0), failCount(0), unknownTrCounter(0), 
-            unknownRetryCount(0), env(), gridPos(NULL), trGrid(NULL), vfhServoing(NULL), 
-            dynamixelMin(std::numeric_limits< double >::max()), dynamixelMax(-std::numeric_limits< double >::max()), 
-            dynamixelDir(0), dynamixelMaxFixed(false), dynamixelMinFixed(false), dynamixelAngle(0), 
+            unknownRetryCount(0), env(), gridPos(NULL), trGrid(NULL), vfhServoing(NULL),  
             bodyCenter2Body(Affine3d::Identity()), markedRobotsPlace(false), aprioriMap(NULL), 
             aprioriMap2Body(Affine3d::Identity()), mLastReplan()
 {    
@@ -56,60 +54,72 @@ void ServoingTask::copyGrid()
     gridPos->setTransform(tr);
 }
 
-void ServoingTask::updateSweepingState(Eigen::Affine3d const& transformation)
+void ServoingTask::RangeDataInput::updateSweepingState(Eigen::Affine3d const& rangeData2Body)
 {
-    Vector3d angles = transformation.rotation().eulerAngles(2,1,0);
+    //for now we only assume a rotation around X
+    Vector3d angles = rangeData2Body.rotation().eulerAngles(2,1,0);
 
-    double current_servo_angle = angles[2]; 
-    if(current_servo_angle == 0) {
-        RTT::log(RTT::Warning) << "Received servo angle is 0 (not set?)" << std::endl; 
+    double currentSweepAngle = angles[2]; 
+    sweepMin = std::min(sweepMin, currentSweepAngle);
+    sweepMax = std::max(sweepMax, currentSweepAngle);
+
+    if(fabs(currentSweepAngle - lastSweepAngle) < 0.01)
+    {
+	noSweepCnt++;
     }
-    dynamixelMin = std::min(dynamixelMin, current_servo_angle);
-    dynamixelMax = std::max(dynamixelMax, current_servo_angle);
-
-    if ( !justStarted && (!dynamixelMaxFixed || !dynamixelMinFixed) ) {
-        int dir;
-
-        if (current_servo_angle > dynamixelAngle) { 
-            dir = 1;
-            RTT::log(RTT::Info) << "Servo is moving counter clockwise" << RTT::endlog();
-        } else if ( current_servo_angle < dynamixelAngle ) {
-            dir = -1;
-            RTT::log(RTT::Info) << "Servo is moving clockwise" << RTT::endlog();
-        } else {
-            dir = 0;
-        }
-
-        if ( dynamixelDir - dir == 2 ) {
-            RTT::log(RTT::Info) << "Max dynamixel angle found and set to " << dynamixelMax << RTT::endlog();
-            dynamixelMaxFixed = true;
-        } else if ( dynamixelDir - dir == -2 ) {
-            RTT::log(RTT::Info) << "Min dynamixel angle found and set to " << dynamixelMin << RTT::endlog();
-            dynamixelMinFixed = true;
-        }
-
-        if ( dir != 0 ) {
-            dynamixelDir = dir;
-        }
-    } else 
-
-    dynamixelAngle = current_servo_angle;
-
+    else
+    {
+	noSweepCnt = 0;
+    }
+    
     //track sweep status
     switch (sweepStatus)
     {
+	case TRACKER_INIT:
+	    if(fabs(currentSweepAngle - lastSweepAngle) < 0.01)
+	    {
+		noSweepCnt++;
+	    }
+	    else
+	    {
+		noSweepCnt = 0;
+	    }
+	    
+	    //device seems not to be sweeping at all
+	    if(noSweepCnt > noSweepLimit)
+	    {
+		sweepStatus = SWEEP_UNTRACKED;
+		break;
+	    }
+	    
+	    if (currentSweepAngle > lastSweepAngle && fabs(sweepMin, currentSweepAngle) < 0.001 && fabs(sweepMax, currentSweepAngle) < 0.001)
+	    {
+		foundMin = true;
+	    }
+
+	    if (currentSweepAngle < lastSweepAngle && fabs(sweepMin, currentSweepAngle) < 0.001 && fabs(sweepMax, currentSweepAngle) < 0.001)
+	    {
+		foundMax = true;
+	    }
+	    
+	    if(foundMin && foundMax)
+		sweepStatus = SWEEP_UNTRACKED;
+		
+	    lastSweepAngle = currentSweepAngle;
+	    
+	    break;
         case SWEEP_DONE:
         case SWEEP_UNTRACKED:
             break;
         case WAITING_FOR_START:
-            if(fabs(dynamixelMax - dynamixelAngle) < 0.05)
+            if(fabs(sweepMax - currentSweepAngle) < 0.05)
             {
                 RTT::log(RTT::Info) << "Set sweep status to SWEEP_STARTED" << RTT::endlog(); 
                 sweepStatus = SWEEP_STARTED;
             }
             break;
         case SWEEP_STARTED:
-            if(fabs(dynamixelMin - dynamixelAngle) < 0.05)
+            if(fabs(sweepMin - currentSweepAngle) < 0.05)
             {
                 RTT::log(RTT::Info) << "Set sweep status to SWEEP_DONE" << RTT::endlog(); 
                 sweepStatus = SWEEP_DONE;
