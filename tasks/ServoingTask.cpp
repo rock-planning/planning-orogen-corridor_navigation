@@ -4,6 +4,7 @@
 #include <envire/maps/MLSGrid.hpp>
 #include <envire/Orocos.hpp>
 #include <cmath>
+#include <base/Float.hpp>
 
 using namespace corridor_navigation;
 using namespace vfh_star;
@@ -54,7 +55,24 @@ void ServoingTask::copyGrid()
     gridPos->setTransform(tr);
 }
 
-void ServoingTask::RangeDataInput::updateSweepingState(Eigen::Affine3d const& rangeData2Body)
+ServoingTask::SweepTracker::SweepTracker()
+{
+    sweepStatus = TRACKER_INIT;
+    reset();
+}
+
+void ServoingTask::SweepTracker::reset()
+{
+    sweepMin = std::numeric_limits< double >::max();
+    sweepMax = -std::numeric_limits< double >::max();
+    foundMax = false;
+    foundMin = false;
+    lastSweepAngle = base::NaN<double>();
+    noSweepCnt = 0;
+}
+
+
+void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rangeData2Body)
 {
     //for now we only assume a rotation around X
     Vector3d angles = rangeData2Body.rotation().eulerAngles(2,1,0);
@@ -76,6 +94,7 @@ void ServoingTask::RangeDataInput::updateSweepingState(Eigen::Affine3d const& ra
     switch (sweepStatus)
     {
 	case TRACKER_INIT:
+        {
 	    if(fabs(currentSweepAngle - lastSweepAngle) < 0.01)
 	    {
 		noSweepCnt++;
@@ -88,28 +107,31 @@ void ServoingTask::RangeDataInput::updateSweepingState(Eigen::Affine3d const& ra
 	    //device seems not to be sweeping at all
 	    if(noSweepCnt > noSweepLimit)
 	    {
-		sweepStatus = SWEEP_UNTRACKED;
+		sweepStatus = SWEEP_DONE;
 		break;
 	    }
 	    
-	    if (currentSweepAngle > lastSweepAngle && fabs(sweepMin, currentSweepAngle) < 0.001 && fabs(sweepMax, currentSweepAngle) < 0.001)
+	    double distToMin = fabs(sweepMin - currentSweepAngle);
+            double distToMax = fabs(sweepMax - currentSweepAngle);
+	    
+	    if (currentSweepAngle > lastSweepAngle && distToMin > 0.001 && distToMax > 0.001)
 	    {
 		foundMin = true;
 	    }
 
-	    if (currentSweepAngle < lastSweepAngle && fabs(sweepMin, currentSweepAngle) < 0.001 && fabs(sweepMax, currentSweepAngle) < 0.001)
+	    if (currentSweepAngle < lastSweepAngle && distToMin > 0.001 && distToMax > 0.001)
 	    {
 		foundMax = true;
 	    }
 	    
 	    if(foundMin && foundMax)
-		sweepStatus = SWEEP_UNTRACKED;
+		sweepStatus = SWEEP_DONE;
 		
 	    lastSweepAngle = currentSweepAngle;
+        }
 	    
 	    break;
         case SWEEP_DONE:
-        case SWEEP_UNTRACKED:
             break;
         case WAITING_FOR_START:
             if(fabs(sweepMax - currentSweepAngle) < 0.05)
@@ -158,7 +180,13 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
     }
     
-    updateSweepingState(laser2BodyCenter);
+    frontLaserTracker.updateSweepingState(laser2BodyCenter);
+    //wait till the tracker found max and min values
+    if(!frontLaserTracker.initDone())
+    {
+        RTT::log(RTT::Debug) << "Waiting for Sweep trackter to find min and max" << RTT::endlog();
+        return;
+    }
 
     Eigen::Affine3d body_center_to_odo;
     if(!_body_center2odometry.get(ts, body_center_to_odo, true)) {
@@ -203,7 +231,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         justStarted = false;
     } 
 
-    if ( !markedRobotsPlace && dynamixelMaxFixed && dynamixelMinFixed ) { //TODO dynamixel.. have been commented out, why?
+    if ( !markedRobotsPlace) {
 
         TreeSearchConf search_conf(_search_conf.value());
 
@@ -212,7 +240,7 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
 
         if ( front_shadow <= 0.0 ) {
             double laser_height = laser2BodyCenter.translation().z() + _height_to_ground.get();
-            front_shadow = laser_height / tan(-dynamixelMin);
+            front_shadow = laser_height / tan(-frontLaserTracker.getMinAngle());
             RTT::log(RTT::Info) << "front shadow distance from tilt: " << front_shadow << RTT::endlog();
         }
         
@@ -226,17 +254,9 @@ void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const b
         mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
         markedRobotsPlace = true;
         RTT::log(RTT::Info) << "Robot place has been marked as traversable" << RTT::endlog();
-    } else {
-        RTT::log(RTT::Info) << "Robot place has NOT been marked, dynamixelMaxFixed: " << dynamixelMaxFixed << ", dynamixelMinFixed: " << dynamixelMinFixed << RTT::endlog();
     }
 
-    // Do not add laser scans, when the robot's place is not marked
-    if ( markedRobotsPlace ) {
-        gotNewMap |= mapGenerator->addLaserScan(scan_reading_non_const, bodyCenter2Odo, laser2BodyCenter);
-        RTT::log(RTT::Info) << "Laserscan has been added" << RTT::endlog();
-    } else {
-        RTT::log(RTT::Info) << "Laserscan has NOT been added, robot place not marked" << RTT::endlog();   
-    }
+    gotNewMap |= mapGenerator->addLaserScan(scan_reading_non_const, bodyCenter2Odo, laser2BodyCenter);
 
     // Debug output of the laser2map transformation.
     base::samples::RigidBodyState laser2Map;
@@ -309,7 +329,6 @@ bool ServoingTask::startHook()
     
     gotNewMap = false;
     justStarted = true;
-    sweepStatus = SWEEP_UNTRACKED;
     noTrCounter = 0;
     unknownTrCounter = 0;
 
@@ -323,45 +342,16 @@ bool ServoingTask::startHook()
     vfhServoing->setNewTraversabilityGrid(trGrid);
     
     bodyCenter2Odo = Affine3d::Identity();
-    
-    dynamixelMin = std::numeric_limits< double >::max();
-    dynamixelMax = -std::numeric_limits< double >::max();
-    dynamixelMinFixed = false;
-    dynamixelMaxFixed = false;
-    dynamixelDir = 0;
+
+    frontLaserTracker.reset();
 
     return true;
 }
 
-
-
-
-void ServoingTask::updateHook()
+void ServoingTask::writeGridDump()
 {
-    base::samples::RigidBodyState odometry_reading;
-    bool received_odometry = false;
-    while( _odometry_samples.read(odometry_reading, false) == RTT::NewData ) {
-        _transformer.pushDynamicTransformation( odometry_reading );	
-        received_odometry = true;
-    }
-
-    ServoingTaskBase::updateHook();
-
-    if (gotNewMap && markedRobotsPlace)
-    {
-        mapGenerator->computeNewMap();
-
-        TreeSearchConf search_conf(_search_conf.value());
-        const base::Pose curPose(bodyCenter2Odo);
-        //const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
-        //mark all unknown beside the robot as obstacle, but none in front of the robot
-        // Removed: unnecessary restriction of the freedom of movement
-        //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
-        //RTT::log(RTT::Info) << "Marks the unknown area besides the robot as obstacles" << RTT::endlog();
-    }
-    
     // Output the map
-    if (_gridDump.connected() && gotNewMap)
+    if (_gridDump.connected())
     {
         vfh_star::GridDump gd;
         mapGenerator->getGridDump(gd);
@@ -388,7 +378,10 @@ void ServoingTask::updateHook()
         }
         RTT::log(RTT::Info) << "Output the new map" << RTT::endlog();
     }
+}
 
+bool ServoingTask::getDriveDirection(double& driveDirection)
+{
     // Request the heading, which describes a relative orientation, apply it to the current
     // orientation of the robot within the odometry frame and set globalHeading to the new z-rotation.
     double relative_heading = 0;
@@ -398,130 +391,184 @@ void ServoingTask::updateHook()
         //write empty trajectory to stop robot
         _trajectory.write(std::vector<base::Trajectory>());
         RTT::log(RTT::Info) << "No heading available, stop robot by writing an empty trajectory" << RTT::endlog();
-        return;
-    } else if (ret == RTT::NewData && received_odometry) {
-        Eigen::Affine3d cur_transf = odometry_reading.getTransform();
-        cur_transf.rotate(Eigen::AngleAxisd(relative_heading, Eigen::Vector3d::UnitZ()));
-        Vector3d angles = cur_transf.rotation().eulerAngles(0,1,2);
+        return false;
+    }
+    
+    if (ret == RTT::NewData) {
+        if(base::isUnset<double>(relative_heading))
+        {
+            return false;
+        }
+        
+        bodyCenter2Odo.rotate(Eigen::AngleAxisd(relative_heading, Eigen::Vector3d::UnitZ()));
+        Vector3d angles = bodyCenter2Odo.rotation().eulerAngles(0,1,2);
         
         if(!isnan(angles[2])) {
             globalHeading = angles[2];
             RTT::log(RTT::Debug) << "Set global heading to " << globalHeading << RTT::endlog();
             // Debug output of the received heading.
             base::samples::RigidBodyState rbs_heading;
-            rbs_heading.setTransform(cur_transf);
+            rbs_heading.setTransform(bodyCenter2Odo);
             rbs_heading.sourceFrame = "robot_heading";
             rbs_heading.targetFrame = "robot";
             _debug_heading_frame.write(rbs_heading); 
         }
     }
+
+    return true;
+}
+
+bool ServoingTask::checkMapConsistency()
+{
+    //convert map from map generator format to envire format
+    copyGrid();
     
+    //notify the servoing that there is a new map
+    vfhServoing->setNewTraversabilityGrid(trGrid);
 
+    vfhServoing->clearDebugData();
+
+    base::Pose frontArea(bodyCenter2Odo);
+    frontArea.position += frontArea.orientation * Vector3d(0, 1.5, 0);
+    vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
+
+
+    // Only go onto terrain we know something about or if we can not gather any more information.
+    return frontArealStats.averageCertainty >= 0.3;
+}
+
+VFHServoing::ServoingStatus ServoingTask::doPathPlanning(std::vector< base::Trajectory >& result)
+{
+    VFHServoing::ServoingStatus ret;
     
-    // Plan only if required and if we have a new map
-    if(_trajectory.connected() && (gotNewMap || sweepStatus == SWEEP_DONE)) {
-        RTT::log(RTT::Info) << "Replanning: Trajectory connected, got a new map, sweep status done" << RTT::endlog();
-        //notify the servoing that there is a new map
-        vfhServoing->setNewTraversabilityGrid(trGrid);
+    RTT::log(RTT::Info) << "" << RTT::endlog(); 
+    base::Time start = base::Time::now();
+    std::vector<base::Trajectory> tr;
+    
+    //set correct Z value according to the map
+    Eigen::Affine3d bodyCenter2Odo_zCorrected(bodyCenter2Odo);
+    mapGenerator->getZCorrection(bodyCenter2Odo_zCorrected);
+    
+    ret = vfhServoing->getTrajectories(tr, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
+    base::Time end = base::Time::now();
+    mLastReplan = base::Time::now();
 
-        vfhServoing->clearDebugData();
-
-        base::Pose frontArea(bodyCenter2Odo);
-        frontArea.position += frontArea.orientation * Vector3d(0, 1.5, 0);
-        vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
-
-        // Seems to copy the grid data to the internal map.
-        copyGrid();
-        
-        // Only go onto terrain we know something about or if we can not gather any more information.
-        if((frontArealStats.averageCertainty >= 0.3 || sweepStatus == SWEEP_DONE) && 
-                (base::Time::now() - mLastReplan).toSeconds() > _replanning_delay.get())
-        {
-            RTT::log(RTT::Info) << "Create trajectory, area known (" << frontArealStats.averageCertainty << ") and sweep done" << RTT::endlog();
-            RTT::log(RTT::Info) << "" << RTT::endlog(); 
-            base::Time start = base::Time::now();
-            std::vector<base::Trajectory> tr;
-            
-            //set correct Z value according to the map
-            Eigen::Affine3d bodyCenter2Odo_zCorrected(bodyCenter2Odo);
-            mapGenerator->getZCorrection(bodyCenter2Odo_zCorrected);
-            
-            VFHServoing::ServoingStatus status = vfhServoing->getTrajectories(tr, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
-            base::Time end = base::Time::now();
-            mLastReplan = base::Time::now();
-
-            Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
-            if (_x_forward.get())
-            {
-                for (unsigned int i = 0; i < tr.size(); ++i) {
-                    tr[i].spline.transform(y2x);
-                }
-            }
-                
-            _trajectory.write(tr);
-            RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
-
-            if (_vfhDebug.connected()) {
-	            _vfhDebug.write(vfhServoing->getVFHStarDebugData(std::vector<base::Waypoint>()));
-	        }
-	        
-            if (_debugVfhTree.connected()) {
-	            _debugVfhTree.write(vfhServoing->getTree());
-	        }
-               
-            if(status == VFHServoing::TRAJECTORY_THROUGH_UNKNOWN)
-            {
-	            if(sweepStatus == SWEEP_DONE) {
-	                unknownTrCounter++;
-	            }
-	
-	            if(unknownTrCounter > unknownRetryCount)
-	            {
-                    RTT::log(RTT::Error) << "Quitting, trying to drive through unknown terrain" << RTT::endlog();
-                    return exception(TRAJECTORY_THROUGH_UNKNOWN); // TODO exception or error states?
-	            }
-            } else {
-	            unknownTrCounter = 0;
-            }
-	
-            if(status == VFHServoing::NO_SOLUTION)
-            {
-                RTT::log(RTT::Warning) << "Could not compute trajectory towards target horizon" << RTT::endlog();
-
-                noTrCounter++;
-                if(noTrCounter > failCount) {
-                    RTT::log(RTT::Error) << "Quitting, found no solution" << RTT::endlog();
-                    return exception(NO_SOLUTION); // TODO exception or error states?
-                }
-            } else {
-	            noTrCounter = 0;
-            }
-            
-            if(sweepStatus == SWEEP_DONE) {
-                RTT::log(RTT::Info) << "Set sweep status to SWEEP_UNTRACKED" << RTT::endlog();
-	            sweepStatus = SWEEP_UNTRACKED;
-	        }
-        } else {	
-            RTT::log(RTT::Info) << "Trajectory can not be computed yet, certainty: " << 
-                    frontArealStats.averageCertainty << ", sweep status: " << 
-                    (sweepStatus == SWEEP_DONE ? "done" : "not done") << RTT::endlog();  
-            //we need to wait a full sweep
-            if(sweepStatus == SWEEP_UNTRACKED)
-            {
-                RTT::log(RTT::Info) << "Waiting until sweep is completed" << RTT::endlog(); 
-                sweepStatus = WAITING_FOR_START;
-            }
-            //do not write an empty trajectory here
-            //if we reached this code path we allready
-            //waited for a whole sweep and a valid
-            //trajectory was planned.
+    Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
+    if (_x_forward.get())
+    {
+        for (unsigned int i = 0; i < tr.size(); ++i) {
+            tr[i].spline.transform(y2x);
         }
-    } else {
-        RTT::log(RTT::Debug) << "Trajectory port connected: " << _trajectory.connected() << 
-            ", gotNewMap: " << gotNewMap << ", sweepStatus: " << sweepStatus << RTT::endlog();
+    }
+        
+    RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
+
+    if (_vfhDebug.connected()) {
+        _vfhDebug.write(vfhServoing->getVFHStarDebugData(std::vector<base::Waypoint>()));
+    }
+        
+    if (_debugVfhTree.connected()) {
+        _debugVfhTree.write(vfhServoing->getTree());
+    }
+    
+    return ret;
+}
+
+
+void ServoingTask::updateHook()
+{
+    ServoingTaskBase::updateHook();
+
+    if (gotNewMap && markedRobotsPlace)
+    {
+        mapGenerator->computeNewMap();
+
+        TreeSearchConf search_conf(_search_conf.value());
+        const base::Pose curPose(bodyCenter2Odo);
+        //const double obstacleDist = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance + _search_conf.get().stepDistance * 2.0;
+        //mark all unknown beside the robot as obstacle, but none in front of the robot
+        // Removed: unnecessary restriction of the freedom of movement
+        //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
+        //RTT::log(RTT::Info) << "Marks the unknown area besides the robot as obstacles" << RTT::endlog();
+    }
+    
+    if(gotNewMap)
+    {
+        writeGridDump();
     }
 
-    gotNewMap = false;	
+    //check if we got a valid heading    
+    if(!getDriveDirection(globalHeading))
+    {
+        //write empty trajectory to stop robot
+        _trajectory.write(std::vector<base::Trajectory>());
+        RTT::log(RTT::Info) << "No heading available, stop robot by writing an empty trajectory" << RTT::endlog();
+        return;
+    }
+     
+    //do not plan if nobody listens to us
+    if(!_trajectory.connected())
+    {
+        RTT::log(RTT::Debug) << "Trajectory port not connected, not planning " << RTT::endlog();
+        return;
+    }
+    
+    //wait for the sweep to finish before we do a replan
+    if(frontLaserTracker.isSweepDone())
+    {
+        return;
+    }
+
+    //if we got new sensor information 
+    //try to perform a replan
+    if(gotNewMap)
+    {
+        gotNewMap = false;  
+
+        bool gotConsistentMap = checkMapConsistency();
+        
+        if(gotConsistentMap)
+        {
+            std::vector<base::Trajectory> plannedTrajectory;
+            VFHServoing::ServoingStatus status = doPathPlanning(plannedTrajectory);
+
+            //write the trajectory. It is allways valid
+            _trajectory.write(plannedTrajectory);
+            
+            switch(status)
+            {
+                case VFHServoing::TRAJECTORY_THROUGH_UNKNOWN:
+                    noTrCounter = 0;
+                    unknownTrCounter++;
+                    if(unknownTrCounter > unknownRetryCount)
+                    {
+                        RTT::log(RTT::Error) << "Quitting, trying to drive through unknown terrain" << RTT::endlog();
+                        return exception(TRAJECTORY_THROUGH_UNKNOWN); // TODO exception or error states?
+                    }
+                    break;
+                case VFHServoing::NO_SOLUTION:
+                    unknownTrCounter = 0;
+                    noTrCounter++;
+                    if(noTrCounter > failCount) {
+                        RTT::log(RTT::Error) << "Quitting, found no solution" << RTT::endlog();
+                        return exception(NO_SOLUTION); // TODO exception or error states?
+                    }
+
+                    break;
+                case VFHServoing::TRAJECTORY_OK:
+                    unknownTrCounter = 0;
+                    noTrCounter = 0;
+                    break;
+            };
+        }
+        else
+        {
+            //the map was inconsistent, wait a whole sweep
+            //and hope that the sweep will make it consistens again
+            frontLaserTracker.triggerSweepTracking();
+        }
+    }
+        
 }
 
 // void ServoingTask::errorHook()

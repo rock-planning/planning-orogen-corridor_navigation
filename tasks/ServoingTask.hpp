@@ -14,16 +14,76 @@ namespace corridor_navigation {
         WAITING_FOR_START,
         SWEEP_STARTED,
         SWEEP_DONE,
-        SWEEP_UNTRACKED,
     };
     
     class ServoingTask : public ServoingTaskBase
     {
 	friend class ServoingTaskBase;
     protected:
+        
+        class SweepTracker
+        {
+            double sweepMin;
+            double sweepMax;
+            
+            double lastSweepAngle;
+            
+            int noSweepCnt;
+            int noSweepLimit;
+            
+            bool foundMin;
+            bool foundMax;
+            
+            SweepStatus sweepStatus;
+        public:
+            SweepTracker();
+            void updateSweepingState(Eigen::Affine3d const& rangeDataInput2Body);
+            
+            void reset();
+            
+            double getMinAngle() const 
+            {
+                return sweepMin;
+            }
+
+            double getMaxAngle() const 
+            {
+                return sweepMax;
+            }
+
+            SweepStatus getSweepStatus() const
+            {
+                return sweepStatus;
+            };
+            
+            bool isSweeping()
+            {
+                return sweepStatus != SWEEP_DONE;
+            }
+            
+            void triggerSweepTracking()
+            {
+                if(sweepStatus == SWEEP_DONE)
+                    sweepStatus = WAITING_FOR_START;
+            };
+            
+            bool isSweepDone() const
+            {
+                return sweepStatus == SWEEP_DONE;
+            };
+            
+            
+            bool initDone() const
+            {
+                return sweepStatus != TRACKER_INIT;
+            }
+
+        };
+        
+        
 	/** Handler for the setMap operation
-     */
-    virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
+        */
+        virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
 	
 	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
@@ -38,11 +98,6 @@ namespace corridor_navigation {
 	 * Copies the data from the map generator to trGrid 
 	 **/
 	void copyGrid();
-
-    /**
-     * Calculates the min and max angle of the dynamixel and sets the sweep status.
-     */	
-
 	
 	///Last transformation from body to odometry
 	Eigen::Affine3d bodyCenter2Odo;
@@ -74,54 +129,8 @@ namespace corridor_navigation {
 	
 	corridor_navigation::VFHServoing *vfhServoing;
     
-	class RangeDataInput 
-	{
-	    
-	    
-	    double sweepMin;
-	    double sweepMax;
-	    
-	    double lastSweepAngle;
-	    
-	    int noSweepCnt;
-	    int noSweepLimit = 30;
-	    
-	    bool foundMin;
-	    bool foundMax;
-	    
-	    SweepStatus sweepStatus;
-	public:
-	    RangeDataInput();
-	    void updateSweepingState(Eigen::Affine3d const& rangeDataInput2Body);
-	    
-	    void reset()
-	    {
-		sweepMin = std::numeric_limits< double >::max();
-		sweepMax = -std::numeric_limits< double >::max();
-		foundMax = false;
-		foundMin = false;
-		lastSweepAngle = 0;
-		noSweepCnt = 0;
-	    }
-	    
-	    SweepStatus getSweepStatus() const
-	    {
-		return sweepStatus;
-	    };
-	    
-	    void triggerSweepTracking()
-	    {
-		if(sweepStatus == SWEEP_DONE || sweepStatus == SWEEP_UNTRACKED)
-		    sweepStatus = WAITING_FOR_START;
-	    };
-	    
-	    bool isSweepDone() const
-	    {
-		return sweepStatus == SWEEP_DONE;
-	    };
-	};
-	
-	
+        SweepTracker frontLaserTracker;
+        
 	Eigen::Affine3d bodyCenter2Body;
 
 	bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
@@ -138,6 +147,17 @@ namespace corridor_navigation {
 	
 	base::Time mLastReplan;
 	
+        /**
+         * Writes the current grid map onto a port
+         * */
+        void writeGridDump();
+        
+        bool getDriveDirection(double &driveDirection);
+        
+        VFHServoing::ServoingStatus doPathPlanning(std::vector< base::Trajectory >& result);
+        
+        bool checkMapConsistency();
+        
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");

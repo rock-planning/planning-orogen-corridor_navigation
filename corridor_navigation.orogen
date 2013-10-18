@@ -32,10 +32,6 @@ task_context "ServoingTask" do
 	needs_reliable_connection.
         doc 'Optional velodyne scans'
 
-    input_port('odometry_samples', '/base/samples/RigidBodyState').
-	needs_reliable_connection.
-	doc 'timestamped oodometry samples'
-
     input_port('heading', 'double').
 	doc 'heading in NWU, where the robot should drive'
 
