@@ -1,6 +1,8 @@
 /* Generated from orogen/lib/orogen/templates/typekit/Opaques.cpp */
 
 #include "Opaques.hpp"
+#include <corridor_navigation/typekit/OpaqueTypes.hpp>
+#include <corridor_navigation/typekit/Opaques.hpp>
 #include <base/typekit/OpaqueConvertions.hpp>
 
     /** Returns the intermediate value that is contained in \c real_type */
@@ -65,9 +67,9 @@ void orogen_typekits::fromIntermediate(::vfh_star::Tree& real_type, ::wrappers::
     wrappers::vfh_star::TreeNode const& wrapped_root = intermediate.nodes.back();
     assert(wrapped_root.nodeId == 0);
     
-    base::Pose p;
-    fromIntermediate(p, wrapped_root.pose);
-    vfh_star::TreeNode* root_node = real_type.createRoot(p, wrapped_root.direction);
+    base::Pose rp;
+    fromIntermediate(rp, wrapped_root.pose);
+    vfh_star::TreeNode* root_node = real_type.createRoot(rp, wrapped_root.direction);
 
     //construct map and create nodes
     for (std::vector<wrappers::vfh_star::TreeNode>::const_iterator it = nodes.begin();
