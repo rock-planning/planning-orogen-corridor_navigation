@@ -329,6 +329,7 @@ bool ServoingTask::startHook()
     
     gotNewMap = false;
     justStarted = true;
+    doPlanning = false;
     noTrCounter = 0;
     unknownTrCounter = 0;
 
@@ -376,7 +377,7 @@ void ServoingTask::writeGridDump()
         } else {
             _gridDump.write(gd);
         }
-        RTT::log(RTT::Info) << "Output the new map" << RTT::endlog();
+        RTT::log(RTT::Debug) << "Output the new map" << RTT::endlog();
     }
 }
 
@@ -490,12 +491,15 @@ void ServoingTask::updateHook()
         // Removed: unnecessary restriction of the freedom of movement
         //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
         //RTT::log(RTT::Info) << "Marks the unknown area besides the robot as obstacles" << RTT::endlog();
+
+	doPlanning = true;
     }
     
     if(gotNewMap)
     {
         writeGridDump();
     }
+    gotNewMap = false;  
 
     //check if we got a valid heading    
     if(!getDriveDirection(globalHeading))
@@ -522,14 +526,19 @@ void ServoingTask::updateHook()
 
     //if we got new sensor information 
     //try to perform a replan
-    if(gotNewMap)
+    if(doPlanning)
     {
-        gotNewMap = false;  
+        RTT::log(RTT::Info) << "Trying to plan" << RTT::endlog();
+
+	doPlanning = false;
 
         bool gotConsistentMap = checkMapConsistency();
         
         if(gotConsistentMap)
         {
+
+	    RTT::log(RTT::Info) << "Got consistent map" << RTT::endlog();
+
             std::vector<base::Trajectory> plannedTrajectory;
             VFHServoing::ServoingStatus status = doPathPlanning(plannedTrajectory);
 
@@ -564,6 +573,7 @@ void ServoingTask::updateHook()
         }
         else
         {
+	    RTT::log(RTT::Info) << "Map ist inconsisten, triggering Sweep" << RTT::endlog();
             //the map was inconsistent, wait a whole sweep
             //and hope that the sweep will make it consistens again
             frontLaserTracker.triggerSweepTracking();

@@ -58,7 +58,7 @@ namespace corridor_navigation {
             
             bool isSweeping()
             {
-                return sweepStatus != SWEEP_DONE;
+	        return (sweepStatus != SWEEP_DONE);
             }
             
             void triggerSweepTracking()
@@ -69,13 +69,13 @@ namespace corridor_navigation {
             
             bool isSweepDone() const
             {
-                return sweepStatus == SWEEP_DONE;
+	        return (sweepStatus == SWEEP_DONE);
             };
             
             
             bool initDone() const
             {
-                return sweepStatus != TRACKER_INIT;
+	        return (sweepStatus != TRACKER_INIT);
             }
 
         };
@@ -106,6 +106,7 @@ namespace corridor_navigation {
 	double globalHeading;
 	
 	bool gotNewMap;
+	bool doPlanning;
 	
 	// True just after the startHook, and until we get a proper pose update
 	bool justStarted;
