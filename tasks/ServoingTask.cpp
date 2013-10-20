@@ -514,8 +514,9 @@ void ServoingTask::updateHook()
     }
     
     //wait for the sweep to finish before we do a replan
-    if(frontLaserTracker.isSweepDone())
+    if(frontLaserTracker.isSweeping())
     {
+        RTT::log(RTT::Info) << "Waiting for sweep to finish" << RTT::endlog();
         return;
     }
 
