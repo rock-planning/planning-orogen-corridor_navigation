@@ -11,10 +11,10 @@ using namespace vfh_star;
 using namespace Eigen;
 
 ServoingTask::ServoingTask(std::string const& name)
-    : ServoingTaskBase(name), bodyCenter2Odo(Affine3d::Identity()), globalHeading(0.0), 
+    : ServoingTaskBase(name), frontInput(_laser2body_center, this), backInput(_laser_back2body_center, this), bodyCenter2Odo(Affine3d::Identity()), globalHeading(0.0), 
             gotNewMap(false), justStarted(true), noTrCounter(0), failCount(0), unknownTrCounter(0), 
             unknownRetryCount(0), env(), gridPos(NULL), trGrid(NULL), vfhServoing(NULL),  
-            bodyCenter2Body(Affine3d::Identity()), markedRobotsPlace(false), aprioriMap(NULL), 
+            markedRobotsPlace(false), aprioriMap(NULL), 
             aprioriMap2Body(Affine3d::Identity()), mLastReplan()
 {    
     gridPos = new envire::FrameNode();
@@ -125,13 +125,15 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
 	    }
 	    
 	    if(foundMin && foundMax)
+	      {
 		sweepStatus = SWEEP_DONE;
-		
+	      }	
 	    lastSweepAngle = currentSweepAngle;
         }
 	    
 	    break;
         case SWEEP_DONE:
+
             break;
         case WAITING_FOR_START:
             if(fabs(sweepMax - currentSweepAngle) < 0.05)
@@ -164,108 +166,77 @@ inline Eigen::Affine3d YFORWARD2XFORWARD(Eigen::Affine3d const& y2y)
     return x2y * y2y * y2x;
 }
 
-void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
+void ServoingTask::scan_samples_backTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_back_sample)
 {
-    Eigen::Affine3d laser2BodyCenter;
-    if(!_laser2body_center.get(ts, laser2BodyCenter, true)) {
-        RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
-    	return;
-    }
+    backInput.addLaserScan(ts, scan_samples_back_sample);
+}
 
-    if (_x_forward.get()) {
-        laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
-    }
+void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample)
+{
+    throw std::runtime_error("Transformer callback for velodyne_scans not implemented");
+}
+
+ServoingTask::RangeDataInput::RangeDataInput(transformer::Transformation &rangeData2Body, ServoingTask *task) : rangeData2Body(rangeData2Body), task(task)
+{
+    xForward = task->_x_forward.get();
+    rangeData2Body.registerUpdateCallback(boost::bind(&ServoingTask::RangeDataInput::sweepTransformCallback, this, _1));
+}
+
+void ServoingTask::RangeDataInput::sweepTransformCallback(const base::Time& ts)
+{
+    Eigen::Affine3d body2RangeDataInput; 
+    rangeData2Body.get(ts, body2RangeDataInput);
     
-    frontLaserTracker.updateSweepingState(laser2BodyCenter);
-    //wait till the tracker found max and min values
-    if(!frontLaserTracker.initDone())
-    {
-        RTT::log(RTT::Debug) << "Waiting for Sweep trackter to find min and max" << RTT::endlog();
+    tracker.updateSweepingState(body2RangeDataInput);
+}
+
+void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base::samples::LaserScan& scan_reading)
+{
+    Eigen::Affine3d rangeData2BodyCenterTR;
+    if(!rangeData2Body.get(ts, rangeData2BodyCenterTR, true)) {
+        RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
         return;
     }
 
-    Eigen::Affine3d body_center_to_odo;
-    if(!_body_center2odometry.get(ts, body_center_to_odo, true)) {
+    if (xForward) {
+        rangeData2BodyCenterTR = XFORWARD2YFORWARD(rangeData2BodyCenterTR);
+    }    
+    
+    Eigen::Affine3d bodyCenter2Odo;
+    if(!task->_body_center2odometry.get(ts, bodyCenter2Odo, true)) {
         RTT::log(RTT::Info) << "Interpolated transformation body_center2odometry not available" << RTT::endlog();
         return;
     }
-    
-    bodyCenter2Odo = body_center_to_odo;
 
-    if (_x_forward.get()) {
-        bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
+    Eigen::Affine3d bodyCenter2OdoXF(bodyCenter2Odo);
+
+
+    if (xForward) {
+        bodyCenter2OdoXF = XFORWARD2YFORWARD(bodyCenter2Odo);
     }
 
-    if(!_body_center2body.get(ts, bodyCenter2Body, true)) {
+    Eigen::Affine3d bodyCenter2Body;
+    if(!task->_body_center2body.get(ts, bodyCenter2Body, true)) {
         RTT::log(RTT::Info) << "Interpolated transformation body_center2body not available" << RTT::endlog();
         return;
-	}
-	
-    if (_x_forward.get()) {
+        }
+        
+    if (xForward) {
         bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
     }
 
-    if(mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
+    if(task->mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
         RTT::log(RTT::Info) << "Local map has been moved, robot has reached the boundary" << RTT::endlog();    
     }
     
-    //note this has to be done after moveMapIfRobotNearBoundary
-    //as moveMapIfRobotNearBoundary moves the map to the robot position
-    if(justStarted)
-    {
-        if (aprioriMap) {
-            const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
-            const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
-            mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
-
-            aprioriMap.reset(0);
-            gotNewMap = true;
-        } else {
-            RTT::log(RTT::Warning) << "Apriori map is not available" << RTT::endlog();
-        }
-        RTT::log(RTT::Info) << "justStarted set to false" << RTT::endlog();
-        justStarted = false;
-    } 
-
-    if ( !markedRobotsPlace) {
-
-        TreeSearchConf search_conf(_search_conf.value());
-
-        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
-        double front_shadow = _front_shadow_distance.get();
-
-        if ( front_shadow <= 0.0 ) {
-            double laser_height = laser2BodyCenter.translation().z() + _height_to_ground.get();
-            front_shadow = laser_height / tan(-frontLaserTracker.getMinAngle());
-            RTT::log(RTT::Info) << "front shadow distance from tilt: " << front_shadow << RTT::endlog();
-        }
-        
-        // The area which the robot cannot see will be marked as traversable.
-        // The y-translation is used because of this crazy asguard2rock mapping. 
-        front_shadow += laser2BodyCenter.translation().y() - val / 2.0;
-
-        // We need enough space for a point-turn
-        val *= 2;
-        RTT::log(RTT::Info) << "Traversable Box width and height: " << val << RTT::endlog();
-        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
-        markedRobotsPlace = true;
-        RTT::log(RTT::Info) << "Robot place has been marked as traversable" << RTT::endlog();
-    }
-
-    gotNewMap |= mapGenerator->addLaserScan(scan_reading_non_const, bodyCenter2Odo, laser2BodyCenter);
-
-    // Debug output of the laser2map transformation.
-    base::samples::RigidBodyState laser2Map;
-    if (_x_forward.get()) {
-        laser2Map.setTransform(YFORWARD2XFORWARD(mapGenerator->getLaser2Map()));
-    } else {
-        laser2Map.setTransform(mapGenerator->getLaser2Map());
-    }
-    laser2Map.sourceFrame = "laser";
-    laser2Map.targetFrame = "map";
-    laser2Map.time = ts;
+    task->gotNewMap |= task->mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, rangeData2BodyCenterTR);
     
-    _debug_laser_frame.write(laser2Map);
+}
+
+
+void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
+{
+    frontInput.addLaserScan(ts, scan_reading);
 }
 
 bool ServoingTask::setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose)
@@ -340,8 +311,11 @@ bool ServoingTask::startHook()
     
     bodyCenter2Odo = Affine3d::Identity();
 
-    frontLaserTracker.reset();
+    frontInput.tracker.reset();
+    backInput.tracker.reset();
 
+    _body_center2odometry.registerUpdateCallback(boost::bind(&ServoingTask::bodyCenter2OdoCallback , this, _1));
+    
     return true;
 }
 
@@ -471,11 +445,93 @@ VFHServoing::ServoingStatus ServoingTask::doPathPlanning(std::vector< base::Traj
     return ret;
 }
 
+void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
+{
+//     std::cout << "bodyCenter2OdoCallback at " << ts.toMilliseconds() << std::endl; 
+    if(!_body_center2odometry.get(ts, bodyCenter2Odo, false)) 
+    {
+        RTT::log(RTT::Info) << "Interpolated transformation body_center2odometry not available" << RTT::endlog();
+        return;
+    }
+    
+    if (_x_forward.get()) 
+    {
+        bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
+    }
+
+    
+    if(justStarted)
+    {
+    
+        if(!_body_center2body.get(ts, bodyCenter2Body, true)) 
+        {
+            RTT::log(RTT::Info) << "Interpolated transformation body_center2body not available" << RTT::endlog();
+            return;
+        }
+            
+        if (_x_forward.get()) 
+        {
+            bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
+        }
+
+        if(mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
+            RTT::log(RTT::Info) << "Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+        }
+
+        Eigen::Affine3d laser2BodyCenter;
+        if(!_laser2body_center.get(ts, laser2BodyCenter, true)) 
+        {
+            RTT::log(RTT::Info) << "Interpolated transformation body_center2body not available" << RTT::endlog();
+            return;
+        }
+
+        //note this has to be done after moveMapIfRobotNearBoundary
+        //as moveMapIfRobotNearBoundary moves the map to the robot position
+        if (aprioriMap) {
+            const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
+            const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
+            mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
+
+            aprioriMap.reset(0);
+            gotNewMap = true;
+        } else {
+            RTT::log(RTT::Warning) << "Apriori map is not available" << RTT::endlog();
+        }
+
+        RTT::log(RTT::Info) << "justStarted set to false" << RTT::endlog();
+        TreeSearchConf search_conf(_search_conf.value());
+
+        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+        double front_shadow = _front_shadow_distance.get();
+
+
+        front_shadow += laser2BodyCenter.translation().x() - val / 2.0;
+
+        // We need enough space for a point-turn
+        val *= 2;
+        RTT::log(RTT::Info) << "Traversable Box width and height: " << val << RTT::endlog();
+        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
+        markedRobotsPlace = true;
+        RTT::log(RTT::Info) << "Robot place has been marked as traversable" << RTT::endlog();
+        justStarted = false;
+    }
+    
+//     //deregister callback
+//     _body_center2odometry.registerUpdateCallback(boost::function<void (const base::Time &ts)>());
+    
+}
+
 
 void ServoingTask::updateHook()
 {
     ServoingTaskBase::updateHook();
 
+    if(justStarted)
+    {
+        RTT::log(RTT::Debug) << "Waiting for inital spot to be marked as traversable" << RTT::endlog();
+        return;
+    }
+    
     if (gotNewMap && markedRobotsPlace)
     {
         mapGenerator->computeNewMap();
@@ -514,7 +570,7 @@ void ServoingTask::updateHook()
     }
     
     //wait for the sweep to finish before we do a replan
-    if(frontLaserTracker.isSweeping())
+    if(frontInput.tracker.isSweeping() || backInput.tracker.isSweeping())
     {
         RTT::log(RTT::Info) << "Waiting for sweep to finish" << RTT::endlog();
         return;
@@ -570,9 +626,11 @@ void ServoingTask::updateHook()
         else
         {
 	    RTT::log(RTT::Info) << "Map ist inconsisten, triggering Sweep" << RTT::endlog();
+
             //the map was inconsistent, wait a whole sweep
             //and hope that the sweep will make it consistens again
-            frontLaserTracker.triggerSweepTracking();
+            frontInput.tracker.triggerSweepTracking();
+            backInput.tracker.triggerSweepTracking();            
         }
     }
         

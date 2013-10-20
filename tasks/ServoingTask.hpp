@@ -81,6 +81,21 @@ namespace corridor_navigation {
         };
         
         
+        class RangeDataInput {
+        public:
+            RangeDataInput(transformer::Transformation &rangeData2Body, ServoingTask *task);
+            void addLaserScan(const base::Time& ts, const base::samples::LaserScan& scan_reading); 
+            SweepTracker tracker;
+        private:
+            transformer::Transformation &rangeData2Body;
+            void sweepTransformCallback(const base::Time &ts);
+            ServoingTask *task;
+            bool xForward;
+        };
+        
+        RangeDataInput frontInput;
+        RangeDataInput backInput;
+        
 	/** Handler for the setMap operation
         */
         virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
@@ -88,12 +103,15 @@ namespace corridor_navigation {
 	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
 	vfh_star::TraversabilityMapGenerator *mapGenerator;
+
+        virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
+
+        virtual void scan_samples_backTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_back_sample);
+
+        virtual void velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample);
 	
-	/** callback to receive laser scanner readings*/
-	void scan_callback( base::Time ts, const base::samples::LaserScan& scan_reading );
-
-	virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
-
+        void bodyCenter2OdoCallback(const base::Time &ts);
+        
 	/**
 	 * Copies the data from the map generator to trGrid 
 	 **/
@@ -101,6 +119,7 @@ namespace corridor_navigation {
 	
 	///Last transformation from body to odometry
 	Eigen::Affine3d bodyCenter2Odo;
+        Eigen::Affine3d bodyCenter2Body;
 	
 	/** heading, where the robot should drive */
 	double globalHeading;
@@ -130,10 +149,6 @@ namespace corridor_navigation {
 	
 	corridor_navigation::VFHServoing *vfhServoing;
     
-        SweepTracker frontLaserTracker;
-        
-	Eigen::Affine3d bodyCenter2Body;
-
 	bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
 	
 	/**
