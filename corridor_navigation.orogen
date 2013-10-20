@@ -96,8 +96,6 @@ task_context "ServoingTask" do
     property('entry_height_conf', 'int', 0).
         doc 'Method for constructing each cell height from all the perceived' +
           ' measures. Codes: 0 - mean, 1 - mean+0.5*std, 2 - median.'
-    property('laser_scan_min_range', 'double', 0.1).
-        doc 'Range measurements below this value (meter) will not be used, can be used to ignore parts of the robot.'
     property('replanning_delay', 'double', 10).
         doc 'Minimal time in seconds to wait until another replanning is allowed'
 

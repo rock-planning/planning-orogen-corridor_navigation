@@ -166,10 +166,6 @@ inline Eigen::Affine3d YFORWARD2XFORWARD(Eigen::Affine3d const& y2y)
 
 void ServoingTask::scan_samplesTransformerCallback(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
-    // Hack: Setting of minDistance within MARS is not yet available.
-    base::samples::LaserScan& scan_reading_non_const = const_cast<base::samples::LaserScan&>(scan_reading);
-    scan_reading_non_const.minRange = _laser_scan_min_range.get() * 1000; // m 2 mm
-    
     Eigen::Affine3d laser2BodyCenter;
     if(!_laser2body_center.get(ts, laser2BodyCenter, true)) {
         RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
