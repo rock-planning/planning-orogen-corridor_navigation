@@ -4,6 +4,7 @@
 #include <envire/maps/MLSGrid.hpp>
 #include <envire/Orocos.hpp>
 #include <cmath>
+#include <base/Float.hpp>
 
 using namespace corridor_navigation;
 using namespace vfh_star;
@@ -406,6 +407,14 @@ void ServoingTask::updateHook()
         }
     }
     
+
+    if(base::isNaN(relative_heading))
+    {
+	//write empty trajectory to stop robot
+	_trajectory.write(std::vector<base::Trajectory>());
+	RTT::log(RTT::Info) << "NaN given as Heading, stopping robot by writing an empty trajectory" << RTT::endlog();
+	return;
+    }
 
     
     // Plan only if required and if we have a new map
