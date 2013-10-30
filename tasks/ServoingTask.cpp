@@ -481,7 +481,7 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
         Eigen::Affine3d laser2BodyCenter;
         if(!_laser2body_center.get(ts, laser2BodyCenter, true)) 
         {
-            RTT::log(RTT::Info) << "Interpolated transformation body_center2body not available" << RTT::endlog();
+            RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
             return;
         }
 
