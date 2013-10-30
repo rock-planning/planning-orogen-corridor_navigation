@@ -208,18 +208,16 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
         return;
     }
 
-    Eigen::Affine3d bodyCenter2OdoXF(bodyCenter2Odo);
-
-
     if (xForward) {
-        bodyCenter2OdoXF = XFORWARD2YFORWARD(bodyCenter2Odo);
+        bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
     }
 
     Eigen::Affine3d bodyCenter2Body;
-    if(!task->_body_center2body.get(ts, bodyCenter2Body, true)) {
+    if(!task->_body_center2body.get(ts, bodyCenter2Body, true)) 
+    {
         RTT::log(RTT::Info) << "Interpolated transformation body_center2body not available" << RTT::endlog();
         return;
-        }
+    }
         
     if (xForward) {
         bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
