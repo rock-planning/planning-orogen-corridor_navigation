@@ -58,6 +58,7 @@ void ServoingTask::copyGrid()
 ServoingTask::SweepTracker::SweepTracker()
 {
     sweepStatus = TRACKER_INIT;
+    noSweepLimit = 30;
     reset();
 }
 
