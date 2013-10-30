@@ -392,6 +392,9 @@ bool ServoingTask::checkMapConsistency()
 
     vfhServoing->clearDebugData();
 
+    //DISABLE FRONT CHECK
+    return true;
+    
     base::Pose frontArea(bodyCenter2Odo);
     frontArea.position += frontArea.orientation * Vector3d(0, 1.5, 0);
     vfh_star::ConsistencyStats frontArealStats = mapGenerator->checkMapConsistencyInArea(frontArea, 0.5, 0.5);
@@ -622,8 +625,8 @@ void ServoingTask::updateHook()
 
             //the map was inconsistent, wait a whole sweep
             //and hope that the sweep will make it consistens again
-            frontInput.tracker.triggerSweepTracking();
-            backInput.tracker.triggerSweepTracking();            
+/*            frontInput.tracker.triggerSweepTracking();
+            backInput.tracker.triggerSweepTracking();*/            
         }
     }
         
