@@ -184,6 +184,9 @@ void ServoingTask::RangeDataInput::sweepTransformCallback(const base::Time& ts)
 
 void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base::samples::LaserScan& scan_reading)
 {
+    if(!task->markedRobotsPlace)
+        return;
+    
     Eigen::Affine3d rangeData2BodyCenterTR;
     if(!rangeData2Body.get(ts, rangeData2BodyCenterTR, true)) {
         RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
