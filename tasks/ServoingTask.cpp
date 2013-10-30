@@ -78,19 +78,10 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
     //for now we only assume a rotation around X
     Vector3d angles = rangeData2Body.rotation().eulerAngles(2,1,0);
 
-    double currentSweepAngle = angles[2]; 
+    double currentSweepAngle = angles[1]; 
     sweepMin = std::min(sweepMin, currentSweepAngle);
     sweepMax = std::max(sweepMax, currentSweepAngle);
 
-    if(fabs(currentSweepAngle - lastSweepAngle) < 0.01)
-    {
-	noSweepCnt++;
-    }
-    else
-    {
-	noSweepCnt = 0;
-    }
-    
     //track sweep status
     switch (sweepStatus)
     {
