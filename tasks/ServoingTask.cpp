@@ -411,21 +411,20 @@ VFHServoing::ServoingStatus ServoingTask::doPathPlanning(std::vector< base::Traj
     
     RTT::log(RTT::Info) << "" << RTT::endlog(); 
     base::Time start = base::Time::now();
-    std::vector<base::Trajectory> tr;
     
     //set correct Z value according to the map
     Eigen::Affine3d bodyCenter2Odo_zCorrected(bodyCenter2Odo);
     mapGenerator->getZCorrection(bodyCenter2Odo_zCorrected);
     
-    ret = vfhServoing->getTrajectories(tr, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
+    ret = vfhServoing->getTrajectories(result, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
     base::Time end = base::Time::now();
     mLastReplan = base::Time::now();
 
     Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
     if (_x_forward.get())
     {
-        for (unsigned int i = 0; i < tr.size(); ++i) {
-            tr[i].spline.transform(y2x);
+        for (unsigned int i = 0; i < result.size(); ++i) {
+            result[i].spline.transform(y2x);
         }
     }
         
