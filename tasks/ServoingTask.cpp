@@ -362,6 +362,7 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
     if (ret == RTT::NewData) {
         if(base::isUnset<double>(relative_heading))
         {
+            globalHeading = relative_heading;
             return false;
         }
         
@@ -381,6 +382,11 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
         }
     }
 
+    if(base::isUnset<double>(globalHeading))
+    {
+        return false;
+    }
+        
     return true;
 }
 
