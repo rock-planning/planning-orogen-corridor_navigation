@@ -365,15 +365,16 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
             return false;
         }
         
-        bodyCenter2Odo.rotate(Eigen::AngleAxisd(relative_heading, Eigen::Vector3d::UnitZ()));
-        Vector3d angles = bodyCenter2Odo.rotation().eulerAngles(0,1,2);
+        Eigen::Affine3d bodyCenter2OdoRotated = bodyCenter2Odo;
+        bodyCenter2OdoRotated.rotate(Eigen::AngleAxisd(relative_heading, Eigen::Vector3d::UnitZ()));
+        Vector3d angles = bodyCenter2OdoRotated.rotation().eulerAngles(0,1,2);
         
         if(!isnan(angles[2])) {
             globalHeading = angles[2];
             RTT::log(RTT::Debug) << "Set global heading to " << globalHeading << RTT::endlog();
             // Debug output of the received heading.
             base::samples::RigidBodyState rbs_heading;
-            rbs_heading.setTransform(bodyCenter2Odo);
+            rbs_heading.setTransform(bodyCenter2OdoRotated);
             rbs_heading.sourceFrame = "robot_heading";
             rbs_heading.targetFrame = "robot";
             _debug_heading_frame.write(rbs_heading); 
