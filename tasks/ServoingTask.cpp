@@ -261,6 +261,7 @@ bool ServoingTask::configureHook()
 
     vfhServoing->setCostConf(_cost_conf.get());
     vfhServoing->setSearchConf(_search_conf.get());
+    vfhServoing->setAllowBackwardDriving(_allowBackwardsDriving.get());
     
     //maximum distance of the horizon in the map
     double boundarySize = _search_horizon.get() + _cost_conf.get().obstacleSenseRadius + _search_conf.get().stepDistance;
