@@ -514,7 +514,7 @@ VFHServoing::ServoingStatus ServoingTask::doPathPlanning(std::vector< base::Traj
     Eigen::Affine3d bodyCenter2Odo_zCorrected(bodyCenter2Odo);
     mapGenerator->getZCorrection(bodyCenter2Odo_zCorrected);
     
-    ret = vfhServoing->getTrajectories(result, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body);
+    ret = vfhServoing->getTrajectories(result, base::Pose(bodyCenter2Odo_zCorrected), globalHeading, _search_horizon.get(), bodyCenter2Body, _min_trajectory_lenght.get());
     base::Time end = base::Time::now();
     mLastReplan = base::Time::now();
 

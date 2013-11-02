@@ -104,6 +104,9 @@ task_context "ServoingTask" do
           ' measures. Codes: 0 - mean, 1 - mean+0.5*std, 2 - median.'
     property('replanning_delay', 'double', 10).
         doc 'Minimal time in seconds to wait until another replanning is allowed'
+    property('min_trajectory_lenght', 'double', 0.2).
+        doc('Minimal length of the output trajectory. The planned trajectory gets cut if it goes through unknown terrain.').
+        doc("If the resulting trjacetory length is smaler than this parameter an trajectory_through_unknown error will be generated")
 
         
 
