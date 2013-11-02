@@ -509,6 +509,9 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
 
 
         front_shadow += laser2BodyCenter.translation().x() - val / 2.0;
+        
+        //correct Z height in case we got an apriori map
+        mapGenerator->getZCorrection(bodyCenter2Odo);
 
         // We need enough space for a point-turn
         val *= 2;
