@@ -335,6 +335,12 @@ bool ServoingTask::setMap(::std::vector< ::envire::BinaryEvent > const & map, ::
     }
     
     aprioriMap2Body = mapPose.getTransform().inverse();
+    
+    if (xForward) 
+    {
+        aprioriMap2Body = XFORWARD2YFORWARD(aprioriMap2Body);
+    }
+    
     return true;
 }
 
@@ -547,7 +553,7 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
         return;
     }
     
-    if (_x_forward.get()) 
+    if (xForward) 
     {
         bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
     }
@@ -562,7 +568,7 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
             return;
         }
             
-        if (_x_forward.get()) 
+        if (xForward) 
         {
             bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
         }
@@ -578,11 +584,22 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
             return;
         }
 
+        if (xForward) 
+        {
+            laser2BodyCenter = XFORWARD2YFORWARD(laser2BodyCenter);
+        }
+
         //note this has to be done after moveMapIfRobotNearBoundary
         //as moveMapIfRobotNearBoundary moves the map to the robot position
         if (aprioriMap) {
             const Eigen::Affine3d aprioriMap2BodyCenter(bodyCenter2Body.inverse() * aprioriMap2Body);
-            const Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
+            Eigen::Affine3d apriori2LaserGrid(bodyCenter2Odo * aprioriMap2BodyCenter);
+
+            //turn map by 90 degrees
+            if(xForward)
+                //this transformation looks okward, but works... 
+                apriori2LaserGrid = (Eigen::Affine3d(Eigen::AngleAxisd(-M_PI/2, Eigen::Vector3d::UnitZ())) * apriori2LaserGrid.inverse()).inverse();
+            
             mapGenerator->addKnowMap(aprioriMap.get(), apriori2LaserGrid);
 
             aprioriMap.reset(0);
@@ -602,10 +619,15 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
         
         //correct Z height in case we got an apriori map
         if(!mapGenerator->getZCorrection(bodyCenter2Odo) && aprioriMap)
-	  {
-	    std::cout << "could not get correct Z height, discarding apriori map" << std::endl;
-	    mapGenerator->clearMap();
-	  }
+        {
+            std::cout << "could not get correct Z height, discarding apriori map" << std::endl;
+            mapGenerator->clearMap();
+        } else
+        {
+            //make shure the traversable rectangle is directly on the surface of the ground
+            Vector3d vecToGround = bodyCenter2Odo.rotation() * Vector3d(0,0, _height_to_ground.get());
+            bodyCenter2Odo.translation().z() -= vecToGround.z();
+        }
 
         // We need enough space for a point-turn
         val *= 2;
