@@ -207,17 +207,6 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
         bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
     }
 
-    Eigen::Affine3d bodyCenter2Body;
-    if(!task->_body_center2body.get(ts, bodyCenter2Body, true)) 
-    {
-        RTT::log(RTT::Info) << "Interpolated transformation body_center2body not available" << RTT::endlog();
-        return;
-    }
-        
-    if (xForward) {
-        bodyCenter2Body = XFORWARD2YFORWARD(bodyCenter2Body);
-    }
-
     if(task->mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
         RTT::log(RTT::Info) << "Local map has been moved, robot has reached the boundary" << RTT::endlog();    
     }
