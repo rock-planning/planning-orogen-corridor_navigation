@@ -4,6 +4,7 @@ version "0.1"
 using_library "vfh_star"
 #using_library "asguard"
 using_library 'corridor_navigation'
+using_library 'velodyne_lidar'
 import_types_from "base"
 import_types_from "corridor_planner"
 import_types_from "envire"
@@ -68,10 +69,11 @@ task_context "ServoingTask" do
 	transformation("body_center", "body")
 	transformation("body_center", "odometry")
 	transformation("laser", "body_center")
-	transformation("laser_back", "body_center")
+        transformation("laser_back", "body_center")
+        transformation("velodyne", "body_center")
 	align_port('scan_samples', 0.025)
 	align_port('scan_samples_back', 0.025)
-	align_port('velodyne_scans', 0.025)
+	align_port('velodyne_scans', 0.08)
 
 	max_latency(0.1)
     end

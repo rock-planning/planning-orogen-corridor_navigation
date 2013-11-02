@@ -130,6 +130,8 @@ namespace corridor_navigation {
 	// True just after the startHook, and until we get a proper pose update
 	bool justStarted;
 
+        bool xForward;
+        
 	///Current consecutive planning tries that failed.
 	int noTrCounter;
 	///Maximum number of planning tries that may fail.

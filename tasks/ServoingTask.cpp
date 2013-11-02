@@ -5,6 +5,7 @@
 #include <envire/Orocos.hpp>
 #include <cmath>
 #include <base/Float.hpp>
+#include <velodyne_lidar/pointcloudConvertHelper.hpp>
 
 using namespace corridor_navigation;
 using namespace vfh_star;
@@ -16,7 +17,8 @@ ServoingTask::ServoingTask(std::string const& name)
             unknownRetryCount(0), env(), gridPos(NULL), trGrid(NULL), vfhServoing(NULL),  
             markedRobotsPlace(false), aprioriMap(NULL), 
             aprioriMap2Body(Affine3d::Identity()), mLastReplan()
-{    
+{   
+    xForward = true;
     gridPos = new envire::FrameNode();
     env.attachItem(gridPos);
     
@@ -163,9 +165,107 @@ void ServoingTask::scan_samples_backTransformerCallback(const base::Time &ts, co
     backInput.addLaserScan(ts, scan_samples_back_sample);
 }
 
-void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample)
+void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample1)
 {
-    throw std::runtime_error("Transformer callback for velodyne_scans not implemented");
+    if(!markedRobotsPlace)
+        return;
+
+    Eigen::Affine3d velodyne2bodyCenter;
+    if(!_velodyne2body_center.get(ts, velodyne2bodyCenter, true)) {
+        RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
+        return;
+    }
+
+    if (xForward) {
+        velodyne2bodyCenter = XFORWARD2YFORWARD(velodyne2bodyCenter);
+    }    
+    
+    Eigen::Affine3d bodyCenter2Odo;
+    if(!_body_center2odometry.get(ts, bodyCenter2Odo, true)) {
+        RTT::log(RTT::Info) << "Interpolated transformation body_center2odometry not available" << RTT::endlog();
+        return;
+    }
+
+    if (xForward) {
+        bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
+    }
+
+    if(mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
+        RTT::log(RTT::Info) << "Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+    }
+
+    
+    if(!mapGenerator->getZCorrection(bodyCenter2Odo))
+    {
+        std::cout << "Warning, could not get Z Correction " << std::endl;
+    }
+    
+    velodyne_lidar::MultilevelLaserScan velodyne_scans_sample;
+    //TODO MAKE PARAMETERS CONFIGURABLE
+    velodyne_lidar::ConvertHelper::filterOutliers(velodyne_scans_sample1, velodyne_scans_sample, 2.53, 2);
+
+    const Affine3d velodyne2Odometry(bodyCenter2Odo * velodyne2bodyCenter);
+    
+    std::vector<Vector3d> points;
+    
+    std::vector<std::vector<Vector3d> > scanLines;
+    scanLines.reserve(32);
+    
+    std::vector<velodyne_lidar::MultilevelLaserScan::VerticalMultilevelScan >::const_iterator vertIt = velodyne_scans_sample.horizontal_scans.begin();
+    std::vector<velodyne_lidar::MultilevelLaserScan::SingleScan>::const_iterator horIt; 
+
+    int horCnt = 0;
+    int verCnt = 0;
+    int invalid = 0;
+    for(; vertIt != velodyne_scans_sample.horizontal_scans.end(); vertIt++)
+    {
+        
+        AngleAxisd horizontalRotation(vertIt->horizontal_angle.getRad(), Vector3d::UnitZ());
+        horCnt = 0;
+        for(horIt = vertIt->vertical_scans.begin(); horIt != vertIt->vertical_scans.end(); horIt++)
+        {
+            //TODO add filtering of point we are not interested in
+            
+            //ignore invalid readings
+            if(!velodyne_scans_sample.isRangeValid(horIt->range))
+            {
+                invalid++;
+                horCnt++;
+                continue;
+            }
+
+            base::Angle verticalAngle(vertIt->vertical_start_angle + base::Angle::fromRad(vertIt->vertical_angular_resolution * horCnt));
+
+//             if(verticalAngle > base::Angle::fromDeg(0))
+//                 break;
+
+            if(scanLines.size() <= horCnt)
+            {
+                scanLines.resize(horCnt + 1);
+            }
+
+            //TODO change me for X-Forward 
+            AngleAxisd verticalRotation(-verticalAngle.getRad(), Vector3d::UnitX());
+            
+            Vector3d point = (horizontalRotation * verticalRotation ) * Vector3d(0, horIt->range/1000.0,  0);
+            
+            point = velodyne2Odometry * point;
+            
+            scanLines[horCnt].push_back(point);
+            horCnt++;
+        }
+        verCnt ++;
+    }
+
+//     std::cout << "Got " << horCnt << " horizontal scans with " << verCnt << " points " << " invalide " << invalid << std::endl;
+
+    
+    for(std::vector<std::vector<Vector3d> >::const_iterator it = scanLines.begin();
+        it != scanLines.end(); it++)
+    {
+        mapGenerator->addPointVector(*it);
+    }
+//     gotNewMap = true;
 }
 
 ServoingTask::RangeDataInput::RangeDataInput(transformer::Transformation &rangeData2Body, ServoingTask *task) : rangeData2Body(rangeData2Body), task(task)
@@ -265,6 +365,8 @@ bool ServoingTask::configureHook()
     failCount = _fail_count.get();
     unknownRetryCount = _unknown_retry_count.get();
 
+    xForward = _x_forward.get();
+    
     markedRobotsPlace = false;
 
     justStarted = true;
