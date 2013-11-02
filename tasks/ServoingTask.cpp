@@ -202,7 +202,7 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
     
     velodyne_lidar::MultilevelLaserScan velodyne_scans_sample;
     //TODO MAKE PARAMETERS CONFIGURABLE
-    velodyne_lidar::ConvertHelper::filterOutliers(velodyne_scans_sample1, velodyne_scans_sample, 2.53, 2);
+    velodyne_lidar::ConvertHelper::filterOutliers(velodyne_scans_sample1, velodyne_scans_sample, _velodyne_maximum_angle_to_neighbor.get(), _velodyne_minimum_valid_neighbors.get());
 
     const Affine3d velodyne2Odometry(bodyCenter2Odo * velodyne2bodyCenter);
     
@@ -214,9 +214,9 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
     std::vector<velodyne_lidar::MultilevelLaserScan::VerticalMultilevelScan >::const_iterator vertIt = velodyne_scans_sample.horizontal_scans.begin();
     std::vector<velodyne_lidar::MultilevelLaserScan::SingleScan>::const_iterator horIt; 
 
-    int horCnt = 0;
-    int verCnt = 0;
-    int invalid = 0;
+    unsigned int horCnt = 0;
+    unsigned int verCnt = 0;
+    unsigned invalid = 0;
     for(; vertIt != velodyne_scans_sample.horizontal_scans.end(); vertIt++)
     {
         
@@ -224,10 +224,9 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
         horCnt = 0;
         for(horIt = vertIt->vertical_scans.begin(); horIt != vertIt->vertical_scans.end(); horIt++)
         {
-            //TODO add filtering of point we are not interested in
-            
             //ignore invalid readings
-            if(!velodyne_scans_sample.isRangeValid(horIt->range))
+            //ignore everything over 12 meters
+            if(!velodyne_scans_sample.isRangeValid(horIt->range) || horIt->range > 12000)
             {
                 invalid++;
                 horCnt++;
