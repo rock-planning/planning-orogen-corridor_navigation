@@ -130,14 +130,14 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
 
             break;
         case WAITING_FOR_START:
-            if(fabs(sweepMax - currentSweepAngle) < 0.05)
+            if(fabs(sweepMax - currentSweepAngle) < 0.3)
             {
                 RTT::log(RTT::Info) << "Set sweep status to SWEEP_STARTED" << RTT::endlog(); 
                 sweepStatus = SWEEP_STARTED;
             }
             break;
         case SWEEP_STARTED:
-            if(fabs(sweepMin - currentSweepAngle) < 0.05)
+            if(fabs(sweepMin - currentSweepAngle) < 0.3)
             {
                 RTT::log(RTT::Info) << "Set sweep status to SWEEP_DONE" << RTT::endlog(); 
                 sweepStatus = SWEEP_DONE;
@@ -666,7 +666,7 @@ void ServoingTask::updateHook()
     }
     
     //wait for the sweep to finish before we do a replan
-    if(frontInput.tracker.isSweeping() || backInput.tracker.isSweeping())
+    if(frontInput.tracker.isSweeping())// || backInput.tracker.isSweeping())
     {
         RTT::log(RTT::Info) << "Waiting for sweep to finish" << RTT::endlog();
         return;
