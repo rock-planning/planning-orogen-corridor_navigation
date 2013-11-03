@@ -364,6 +364,7 @@ bool ServoingTask::configureHook()
     
     mapGenerator->setBoundarySize(boundarySize);
     mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
+    mapGenerator->setMaxSlope(_search_conf.get().maxSlop);
 
     failCount = _fail_count.get();
     unknownRetryCount = _unknown_retry_count.get();
