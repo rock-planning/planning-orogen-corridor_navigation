@@ -191,7 +191,7 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
     }
 
     if(mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
-        RTT::log(RTT::Info) << "Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+        RTT::log(RTT::Info) << "velodyne_scansTransformerCallback: Local map has been moved, robot has reached the boundary" << RTT::endlog();    
     }
 
     
@@ -201,7 +201,6 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
     }
     
     velodyne_lidar::MultilevelLaserScan velodyne_scans_sample;
-    //TODO MAKE PARAMETERS CONFIGURABLE
     velodyne_lidar::ConvertHelper::filterOutliers(velodyne_scans_sample1, velodyne_scans_sample, _velodyne_maximum_angle_to_neighbor.get(), _velodyne_minimum_valid_neighbors.get());
 
     const Affine3d velodyne2Odometry(bodyCenter2Odo * velodyne2bodyCenter);
@@ -307,7 +306,7 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
     }
 
     if(task->mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
-        RTT::log(RTT::Info) << "Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+        RTT::log(RTT::Info) << "RangeDataInput:: Local map has been moved, robot has reached the boundary" << RTT::endlog();    
     }
     
     task->gotNewMap |= task->mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, rangeData2BodyCenterTR);
@@ -565,7 +564,7 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
     
         if(!_body_center2body.get(ts, bodyCenter2Body, true)) 
         {
-            RTT::log(RTT::Info) << "Interpolated transformation body_center2body not available" << RTT::endlog();
+            RTT::log(RTT::Info) << "bodyCenter2OdoCallback: Interpolated transformation body_center2body not available" << RTT::endlog();
             return;
         }
             
@@ -575,13 +574,13 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
         }
 
         if(mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
-            RTT::log(RTT::Info) << "Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+            RTT::log(RTT::Info) << "bodyCenter2OdoCallback: Local map has been moved, robot has reached the boundary" << RTT::endlog();    
         }
 
         Eigen::Affine3d laser2BodyCenter;
         if(!_laser2body_center.get(ts, laser2BodyCenter, true)) 
         {
-            RTT::log(RTT::Info) << "Interpolated transformation laser2body_center not available" << RTT::endlog();
+            RTT::log(RTT::Info) << "bodyCenter2OdoCallback: Interpolated transformation laser2body_center not available" << RTT::endlog();
             return;
         }
 
