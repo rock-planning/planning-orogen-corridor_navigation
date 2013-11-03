@@ -618,15 +618,18 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
         front_shadow += laser2BodyCenter.translation().x() - val / 2.0;
         
         //correct Z height in case we got an apriori map
-        if(!mapGenerator->getZCorrection(bodyCenter2Odo) && aprioriMap)
+        if(aprioriMap)
         {
-            std::cout << "could not get correct Z height, discarding apriori map" << std::endl;
-            mapGenerator->clearMap();
-        } else
-        {
-            //make shure the traversable rectangle is directly on the surface of the ground
-            Vector3d vecToGround = bodyCenter2Odo.rotation() * Vector3d(0,0, _height_to_ground.get());
-            bodyCenter2Odo.translation().z() -= vecToGround.z();
+            if(!mapGenerator->getZCorrection(bodyCenter2Odo))
+            {
+                std::cout << "could not get correct Z height, discarding apriori map" << std::endl;
+                mapGenerator->clearMap();
+            } else
+            {
+                //make shure the traversable rectangle is directly on the surface of the ground
+                Vector3d vecToGround = bodyCenter2Odo.rotation() * Vector3d(0,0, _height_to_ground.get());
+                bodyCenter2Odo.translation().z() -= vecToGround.z();
+            }
         }
 
         // We need enough space for a point-turn
