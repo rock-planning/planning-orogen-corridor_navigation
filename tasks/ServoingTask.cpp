@@ -268,7 +268,6 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
 
 ServoingTask::RangeDataInput::RangeDataInput(transformer::Transformation &rangeData2Body, ServoingTask *task) : rangeData2Body(rangeData2Body), task(task)
 {
-    xForward = task->_x_forward.get();
     rangeData2Body.registerUpdateCallback(boost::bind(&ServoingTask::RangeDataInput::sweepTransformCallback, this, _1));
 }
 
@@ -291,7 +290,7 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
         return;
     }
 
-    if (xForward) {
+    if (task->xForward) {
         rangeData2BodyCenterTR = XFORWARD2YFORWARD(rangeData2BodyCenterTR);
     }    
     
@@ -301,7 +300,7 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
         return;
     }
 
-    if (xForward) {
+    if (task->xForward) {
         bodyCenter2Odo = XFORWARD2YFORWARD(bodyCenter2Odo);
     }
 
@@ -417,7 +416,7 @@ void ServoingTask::writeGridDump()
         vfh_star::GridDump gd;
         mapGenerator->getGridDump(gd);
 
-        if (_x_forward.get())
+        if (xForward)
         {
             vfh_star::GridDump gd_xforward;
             int line_size = GRIDSIZE / GRIDRESOLUTION;
@@ -524,7 +523,7 @@ VFHServoing::ServoingStatus ServoingTask::doPathPlanning(std::vector< base::Traj
     mLastReplan = base::Time::now();
 
     Eigen::Affine3d y2x(Eigen::AngleAxisd(-M_PI / 2, Eigen::Vector3d::UnitZ()));
-    if (_x_forward.get())
+    if (xForward)
     {
         for (unsigned int i = 0; i < result.size(); ++i) {
             result[i].spline.transform(y2x);

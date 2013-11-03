@@ -90,7 +90,6 @@ namespace corridor_navigation {
             transformer::Transformation &rangeData2Body;
             void sweepTransformCallback(const base::Time &ts);
             ServoingTask *task;
-            bool xForward;
         };
         
         RangeDataInput frontInput;
