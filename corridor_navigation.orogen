@@ -107,6 +107,10 @@ task_context "ServoingTask" do
     property('min_trajectory_lenght', 'double', 0.2).
         doc('Minimal length of the output trajectory. The planned trajectory gets cut if it goes through unknown terrain.').
         doc("If the resulting trjacetory length is smaler than this parameter an trajectory_through_unknown error will be generated")
+    property('allow_planning', 'bool', true).
+        doc 'setting this value to false disables the planning. Pretty usefull for traversability parameter tuning'
+    property('allow_exception', 'bool', true).
+        doc 'setting this value to false disables the exception states in case the planner did not find a solution. Pretty usefull for parameter tuning on log data'
 
     ## velodyne filter parameter
     property('velodyne_maximum_angle_to_neighbor', 'double', 2.53).

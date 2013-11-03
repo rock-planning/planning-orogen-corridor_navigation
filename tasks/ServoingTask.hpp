@@ -126,6 +126,7 @@ namespace corridor_navigation {
 	
 	bool gotNewMap;
 	bool doPlanning;
+	bool allowPlanning;
 	
 	// True just after the startHook, and until we get a proper pose update
 	bool justStarted;

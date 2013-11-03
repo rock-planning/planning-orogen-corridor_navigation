@@ -371,6 +371,7 @@ bool ServoingTask::configureHook()
     unknownRetryCount = _unknown_retry_count.get();
 
     xForward = _x_forward.get();
+    allowPlanning = _allow_planning.get();
     
     markedRobotsPlace = false;
 
@@ -700,7 +701,7 @@ void ServoingTask::updateHook()
 
     //if we got new sensor information 
     //try to perform a replan
-    if(doPlanning)
+    if(doPlanning && allowPlanning)
     {
         RTT::log(RTT::Info) << "Trying to plan" << RTT::endlog();
 
@@ -727,7 +728,8 @@ void ServoingTask::updateHook()
                     if(unknownTrCounter > unknownRetryCount)
                     {
                         RTT::log(RTT::Error) << "Quitting, trying to drive through unknown terrain" << RTT::endlog();
-                        return exception(TRAJECTORY_THROUGH_UNKNOWN); // TODO exception or error states?
+                        if(_allow_exception.get())
+                            return exception(TRAJECTORY_THROUGH_UNKNOWN); // TODO exception or error states?
                     }
                     break;
                 case VFHServoing::NO_SOLUTION:
@@ -735,7 +737,8 @@ void ServoingTask::updateHook()
                     noTrCounter++;
                     if(noTrCounter > failCount) {
                         RTT::log(RTT::Error) << "Quitting, found no solution" << RTT::endlog();
-                        return exception(NO_SOLUTION); // TODO exception or error states?
+                        if(_allow_exception.get())
+                            return exception(NO_SOLUTION); // TODO exception or error states?
                     }
 
                     break;
