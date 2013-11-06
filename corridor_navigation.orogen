@@ -154,6 +154,21 @@ task_context "FollowingTask" do
     port_driven 'pose_samples'
 end
 
+task_context "PoseAlignmentTask" do
+    transformer do
+        transformation('body','world')
+        max_latency 2
+    end
+
+    input_port('target_pose', '/base/Pose').
+        doc 'the target pose after final alignment'
+
+    output_port('motion_commands', '/base/MotionCommand2D')
+        doc 'motion commands to perform the alignment'
+
+    exception_states :TOO_FAR_FROM_TARGET
+end
+
 task_context "TestTask" do
     property('test_conf', 'corridor_navigation::TestConf')
     property('search_conf',  'vfh_star::TreeSearchConf')
