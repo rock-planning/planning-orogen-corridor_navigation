@@ -155,18 +155,31 @@ task_context "FollowingTask" do
 end
 
 task_context "PoseAlignmentTask" do
-    transformer do
-        transformation('body','world')
-        max_latency 2
-    end
-
     input_port('target_pose', '/base/Pose').
         doc 'the target pose after final alignment'
 
     output_port('motion_commands', '/base/MotionCommand2D')
         doc 'motion commands to perform the alignment'
 
+    transformer do
+        transformation('body','world')
+        transformation("body", "odometry")
+        max_latency(0.1)
+    end
+
+    property('turn_speed',  'double', 0.0)
+    property('forward_speed',  'double', 0.0)
+    property('min_distance_to_target',  'double', 0.0)
+        .doc("If the robot is less than this distance away from the target position, it will assume it reached it")
+    property('min_alginment_angle',  'double', 0.0)
+        .doc("The precision of the alignement the robot will try to achive")
+    property('retry_distance',  'double', 0.0)
+        .doc("If the robot is more than the retry distance away from the target, it will
+              realign to the target position and try driving there again")
+
     exception_states :TOO_FAR_FROM_TARGET
+
+    periodic 0.1
 end
 
 task_context "TestTask" do
