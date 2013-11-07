@@ -43,7 +43,7 @@ namespace corridor_navigation {
         Eigen::Affine3d body2World;
         base::Pose target_odo;
         bool hasTargetInOdometry;
-        
+        double bestDistToTarget;
         bool alignToAngle(double angle, base::commands::Motion2D& cmd);
         
         enum ALIGN_STATE curState;

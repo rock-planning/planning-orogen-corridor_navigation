@@ -104,7 +104,7 @@ void PoseAlignmentTask::updateHook()
         
         //got new pose, reinit
         curState = INIT;
-        
+        bestDistToTarget = std::numeric_limits< double >::max();
         hasTargetInOdometry = true;
     }
 
@@ -130,6 +130,8 @@ void PoseAlignmentTask::updateHook()
     target_body.position.z() = 0;
     
     const double distToTarget = target_body.position.norm();
+    
+    bestDistToTarget = std::min(distToTarget, bestDistToTarget);
     
     switch(curState)
     {
@@ -167,6 +169,13 @@ void PoseAlignmentTask::updateHook()
             if(target_body.position.x() < 0)
                 cmd.translation *= -1;
 
+            if(fabs(bestDistToTarget - distToTarget) > _retry_distance.get() / 2.0 && 
+                distToTarget > _retry_distance.get())
+            {
+                bestDistToTarget = std::numeric_limits< double >::max();
+                curState = INIT;
+            }
+            
             break;
         case REACHED_TARGET_POSTION:
         {
