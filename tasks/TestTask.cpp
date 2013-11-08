@@ -36,12 +36,22 @@ AngleIntervals getNextPossibleDirections(const vfh_star::TreeNode& current_node,
         return result;
     }
 
-    std::pair<base::Pose, bool> getProjectedPose(const vfh_star::TreeNode& curNode,
+    std::vector<vfh_star::ProjectedPose> getProjectedPoses(const vfh_star::TreeNode& curNode,
             double heading, double distance) const
     {
         Eigen::Quaterniond q = Quaterniond(AngleAxisd(heading, Vector3d::UnitZ()));
         Eigen::Vector3d p = curNode.getPose().position + q * Vector3d::UnitY() * distance;
-        return std::make_pair(base::Pose(p, q), true);
+
+        vfh_star::ProjectedPose pr;
+        pr.driveMode = 0;
+        pr.angleTurned = angleDiff(heading, curNode.getYaw());
+        pr.nextPoseExists = true;
+        pr.pose.position = p;
+        pr.pose.orientation = q;
+        std::vector< vfh_star::ProjectedPose > ret;
+        ret.push_back(pr);
+
+        return ret;
     }
 };
 
