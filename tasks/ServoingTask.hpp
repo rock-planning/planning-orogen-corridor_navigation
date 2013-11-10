@@ -126,7 +126,6 @@ namespace corridor_navigation {
 	bool gotNewMap;
 	bool doPlanning;
 	bool allowPlanning;
-	
 	// True just after the startHook, and until we get a proper pose update
 	bool justStarted;
 
@@ -175,6 +174,7 @@ namespace corridor_navigation {
         VFHServoing::ServoingStatus doPathPlanning(std::vector< base::Trajectory >& result);
         
         bool checkMapConsistency();
+        base::Time lastGridDumpTime;
         
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
