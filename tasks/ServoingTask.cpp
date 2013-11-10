@@ -411,9 +411,12 @@ bool ServoingTask::startHook()
 
 void ServoingTask::writeGridDump()
 {
+    base::Time now = base::Time::now();
     // Output the map
-    if (_gridDump.connected())
+    if (_gridDump.connected() && ((now - lastGridDumpTime) > base::Time::fromSeconds(0.33)))
     {
+        lastGridDumpTime = now;
+
         vfh_star::GridDump gd;
         mapGenerator->getGridDump(gd);
 
