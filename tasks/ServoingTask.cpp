@@ -730,6 +730,7 @@ void ServoingTask::updateHook()
                 case VFHServoing::TRAJECTORY_THROUGH_UNKNOWN:
                     noTrCounter = 0;
                     unknownTrCounter++;
+                    frontInput.tracker.triggerSweepTracking();
                     if(unknownTrCounter > unknownRetryCount)
                     {
                         RTT::log(RTT::Error) << "Quitting, trying to drive through unknown terrain" << RTT::endlog();
@@ -740,6 +741,7 @@ void ServoingTask::updateHook()
                 case VFHServoing::NO_SOLUTION:
                     unknownTrCounter = 0;
                     noTrCounter++;
+                    frontInput.tracker.triggerSweepTracking();
                     if(noTrCounter > failCount) {
                         RTT::log(RTT::Error) << "Quitting, found no solution" << RTT::endlog();
                         if(_allow_exception.get())
