@@ -77,7 +77,11 @@ namespace corridor_navigation {
             {
 	        return (sweepStatus != TRACKER_INIT);
             }
-
+            
+            double getFrontShadow(double laser_height)
+            {
+                return laser_height / tan(-sweepMin);
+            }
         };
         
         
@@ -110,6 +114,8 @@ namespace corridor_navigation {
         virtual void velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample);
 	
         void bodyCenter2OdoCallback(const base::Time &ts);
+
+        void setInitialAreaTraversable(Eigen::Affine3d laser2BodyCenter);
         
 	/**
 	 * Copies the data from the map generator to trGrid 

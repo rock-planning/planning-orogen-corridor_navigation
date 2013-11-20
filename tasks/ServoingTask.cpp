@@ -621,45 +621,69 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
         } else {
             RTT::log(RTT::Warning) << "CorridorServoing: Apriori map is not available" << RTT::endlog();
         }
-
-        RTT::log(RTT::Info) << "CorridorServoing: justStarted set to false" << RTT::endlog();
-        TreeSearchConf search_conf(_search_conf.value());
-
-        double val = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
-        double front_shadow = _front_shadow_distance.get();
-
-
-        front_shadow += laser2BodyCenter.translation().x() - val / 2.0;
-        
-        //correct Z height in case we got an apriori map
-        if(aprioriMap)
-        {
-            if(!mapGenerator->getZCorrection(bodyCenter2Odo))
-            {
-                std::cout << "CorridorServoing: could not get correct Z height, discarding apriori map" << std::endl;
-                mapGenerator->clearMap();
-            } else
-            {
-                //make shure the traversable rectangle is directly on the surface of the ground
-                Vector3d vecToGround = bodyCenter2Odo.rotation() * Vector3d(0,0, _height_to_ground.get());
-                bodyCenter2Odo.translation().z() -= vecToGround.z();
-            }
-        }
-
-        // We need enough space for a point-turn
-        val *= 2;
-        RTT::log(RTT::Info) << "CorridorServoing: Traversable Box width and height: " << val << RTT::endlog();
-        mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), val, val, front_shadow);
-        markedRobotsPlace = true;
-        RTT::log(RTT::Info) << "CorridorServoing: Robot place has been marked as traversable" << RTT::endlog();
-        justStarted = false;
-    }
-    
 //     //deregister callback
 //     _body_center2odometry.registerUpdateCallback(boost::function<void (const base::Time &ts)>());
-    
-}
 
+    setInitialAreaTraversable(laser2BodyCenter);
+    
+    RTT::log(RTT::Info) << "justStarted is now False" << RTT::endlog();
+    justStarted = false;
+    
+    }
+}
+		
+void ServoingTask::setInitialAreaTraversable(Eigen::Affine3d laser2BodyCenter)
+{
+	//Setting up of the initialy traversable area (better make an independent method for readability)
+    //correct Z height in case we got an apriori map
+    if(aprioriMap)
+    {
+        if(!mapGenerator->getZCorrection(bodyCenter2Odo))
+        {
+            std::cout << "CorridorServoing: could not get correct Z height, discarding apriori map" << std::endl;
+            mapGenerator->clearMap();
+        } else
+        {
+            //make shure the traversable rectangle is directly on the surface of the ground
+            Vector3d vecToGround = bodyCenter2Odo.rotation() * Vector3d(0,0, _height_to_ground.get());
+            bodyCenter2Odo.translation().z() -= vecToGround.z();
+        }
+    }
+    TreeSearchConf search_conf(_search_conf.value());
+    
+    // We use the parameter front_shadow to mark the area in front of the robot which is not covered by the lidar as traversable.
+    // If the front_shadow is -1.0 that means that the front_shadow length is unknown. Therefore we calculate it.
+    // If other value is given in the config file it is directly used
+    double front_shadow = _front_shadow_distance.get();
+
+    if ( front_shadow == -1.0 ) {
+        double laser_height = laser2BodyCenter.translation().z() + _height_to_ground.get();
+        front_shadow = frontInput.tracker.getFrontShadow(laser_height);
+        RTT::log(RTT::Info) << "laser to body center x distance: " << laser2BodyCenter.translation().y() << RTT::endlog();
+        // The y-translation is used because of this crazy asguard2rock mapping. 
+        front_shadow = (fabs(laser2BodyCenter.translation().y()) + front_shadow);
+        RTT::log(RTT::Info) << "front shadow distance from tilt: " << front_shadow << RTT::endlog();
+    }
+    
+    // The area which the robot cannot see will be marked as traversable.
+    // We define a rectangle for this initialy assumed as traversable area.
+    // - Width is given by the robotWidth + obstacleSafetyDistance + stepDistance
+    // - Height is given by the Width + front_shadow
+    
+    double travAreaWidth = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+    double travAreaHeight = travAreaWidth + front_shadow;
+
+    RTT::log(RTT::Info) << "Traversable Box width and height: " << travAreaWidth << ", " << travAreaHeight << RTT::endlog();
+    RTT::log(RTT::Info) << "Traversable Box y_offset: " << front_shadow << RTT::endlog();
+    // What is this y_offset doing (last parameter)? It places the robot somehow higher
+    //mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), travAreaWidth, travAreaHeight, front_shadow);
+    mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), travAreaWidth, travAreaHeight, 0.0);
+
+    markedRobotsPlace = true;
+
+    RTT::log(RTT::Info) << "Robot place has been marked as traversable" << RTT::endlog();
+
+}
 
 void ServoingTask::updateHook()
 {
