@@ -449,8 +449,10 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
     // Request the heading, which describes a relative orientation, apply it to the current
     // orientation of the robot within the odometry frame and set globalHeading to the new z-rotation.
     double relative_heading = 0;
-    RTT::FlowStatus ret = _heading.read(relative_heading);
-    if(ret == RTT::NoData)
+    double absolute_heading = 0;
+    RTT::FlowStatus retDiffHeading = _heading.read(relative_heading);
+    RTT::FlowStatus retAbsoluteHeading = _absolute_heading.read(absolute_heading);
+    if((retDiffHeading == RTT::NoData) && (retAbsoluteHeading == RTT::NoData))
     {
         //write empty trajectory to stop robot
         _trajectory.write(std::vector<base::Trajectory>());
@@ -458,7 +460,7 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
         return false;
     }
     
-    if (ret == RTT::NewData) {
+    if (retDiffHeading == RTT::NewData) {
         if(base::isUnset<double>(relative_heading))
         {
             globalHeading = relative_heading;
@@ -478,6 +480,15 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
             rbs_heading.sourceFrame = "robot_heading";
             rbs_heading.targetFrame = "robot";
             _debug_heading_frame.write(rbs_heading); 
+        }
+    }
+    else
+    {
+        if (retAbsoluteHeading == RTT::NewData) 
+        {
+            globalHeading = absolute_heading;
+            RTT::log(RTT::Debug) << "Received global goal heading to " << absolute_heading << RTT::endlog();
+            RTT::log(RTT::Debug) << "Set global heading to " << globalHeading << RTT::endlog();
         }
     }
 

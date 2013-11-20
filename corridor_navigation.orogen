@@ -34,6 +34,9 @@ task_context "ServoingTask" do
         doc 'Optional velodyne scans'
 
     input_port('heading', 'double').
+	doc 'differential heading in NWU, where the robot should drive'
+
+    input_port('absolute_heading', 'double').
 	doc 'heading in NWU, where the robot should drive'
 
     output_port("segmented", "bool").
