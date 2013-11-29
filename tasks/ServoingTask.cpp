@@ -659,12 +659,13 @@ void ServoingTask::setInitialAreaTraversable(Eigen::Affine3d laser2BodyCenter)
     double front_shadow = _front_shadow_distance.get();
 
     if ( front_shadow == -1.0 ) {
+        RTT::log(RTT::Info) << "No front shadow distance given, one is to be estimated " << RTT::endlog();
         double laser_height = laser2BodyCenter.translation().z() + _height_to_ground.get();
         front_shadow = frontInput.tracker.getFrontShadow(laser_height);
         RTT::log(RTT::Info) << "laser to body center x distance: " << laser2BodyCenter.translation().y() << RTT::endlog();
         // The y-translation is used because of this crazy asguard2rock mapping. 
         front_shadow = (fabs(laser2BodyCenter.translation().y()) + front_shadow);
-        RTT::log(RTT::Info) << "front shadow distance from tilt: " << front_shadow << RTT::endlog();
+        RTT::log(RTT::Info) << "Estimated front shadow distance from tilt: " << front_shadow << RTT::endlog();
     }
     
     // The area which the robot cannot see will be marked as traversable.
@@ -672,7 +673,7 @@ void ServoingTask::setInitialAreaTraversable(Eigen::Affine3d laser2BodyCenter)
     // - Width is given by the robotWidth + obstacleSafetyDistance + stepDistance
     // - Height is given by the Width + front_shadow
     
-    double travAreaWidth = search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance;
+    double travAreaWidth = (search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance)*2.0; //More than enough
     double travAreaHeight = travAreaWidth + front_shadow;
 
     RTT::log(RTT::Info) << "Traversable Box width and height: " << travAreaWidth << ", " << travAreaHeight << RTT::endlog();
