@@ -66,6 +66,7 @@ ServoingTask::SweepTracker::SweepTracker()
 
 void ServoingTask::SweepTracker::reset()
 {
+    // TODO: TRACKER_INIT not required here?
     sweepMin = std::numeric_limits< double >::max();
     sweepMax = -std::numeric_limits< double >::max();
     foundMax = false;
@@ -77,10 +78,18 @@ void ServoingTask::SweepTracker::reset()
 
 void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rangeData2Body)
 {
-    //for now we only assume a rotation around X
+    //for now we only assume a rotation around X <- actually we are using Y at the moment
     Vector3d angles = rangeData2Body.rotation().eulerAngles(2,1,0);
 
     double currentSweepAngle = angles[1]; 
+    if(angles[1] == 0 && angles[0] + angles[1] + angles[2] != 0) {
+ 	    RTT::log(RTT::Warning) << "CorridorServoing::SweepTracker: The wrong rotaion axis may be used. Rotations (x,y,z) are (" << 
+ 	            angles[0] << ", " << angles[1] << ", " << angles[2] << ")" << RTT::endlog();        
+    }
+    
+    //RTT::log(RTT::Info) << "CorridorServoing::SweepTracker:  Rotations (x,y,z) are (" << 
+    //angles[0] << ", " << angles[1] << ", " << angles[2] << ")" << RTT::endlog();    
+    
     sweepMin = std::min(sweepMin, currentSweepAngle);
     sweepMax = std::max(sweepMax, currentSweepAngle);
 
@@ -89,18 +98,23 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
     {
 	case TRACKER_INIT:
         {
-	    if(fabs(currentSweepAngle - lastSweepAngle) < 0.01)
+	    if(fabs(currentSweepAngle - lastSweepAngle) < 0.001)
 	    {
-		noSweepCnt++;
+	        RTT::log(RTT::Info) << "CorridorServoing::SweepTracker:Increases noSweepCnt, currentSweepAngle: " << currentSweepAngle << 
+	                ", lastSweepAngle: " << lastSweepAngle << ", diff: " << fabs(currentSweepAngle - lastSweepAngle) <<  RTT::endlog(); 
+		    noSweepCnt++;
 	    }
 	    else
 	    {
 		noSweepCnt = 0;
 	    }
 	    
+	    myfile << fabs(currentSweepAngle - lastSweepAngle) << " " << currentSweepAngle << std::endl;
+	    
 	    //device seems not to be sweeping at all
 	    if(noSweepCnt > noSweepLimit)
 	    {
+	        RTT::log(RTT::Info) << "CorridorServoing::SweepTracker: Device seems not to be sweeping, set to sweep-done" << RTT::endlog(); 
 		sweepStatus = SWEEP_DONE;
 		break;
 	    }
@@ -110,19 +124,21 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
 	    
 	    if (currentSweepAngle > lastSweepAngle && distToMin > 0.001 && distToMax > 0.001)
 	    {
-		foundMin = true;
+            foundMin = true;
 	    }
 
 	    if (currentSweepAngle < lastSweepAngle && distToMin > 0.001 && distToMax > 0.001)
 	    {
-		foundMax = true;
+            foundMax = true;
 	    }
 	    
 	    if(foundMin && foundMax)
-	      {
-		sweepStatus = SWEEP_DONE;
-	      }	
-	    lastSweepAngle = currentSweepAngle;
+        {
+            RTT::log(RTT::Info) << "CorridorServoing::SweepTracker: Min " << sweepMin << " and max " 
+                    << sweepMax << " found, set to sweep-done" << RTT::endlog();             
+            sweepStatus = SWEEP_DONE;
+        }	
+            lastSweepAngle = currentSweepAngle;
         }
 	    
 	    break;
@@ -132,18 +148,19 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
         case WAITING_FOR_START:
             if(fabs(sweepMax - currentSweepAngle) < 0.3)
             {
-                RTT::log(RTT::Info) << "CorridorServoing: Set sweep status to SWEEP_STARTED" << RTT::endlog(); 
+                RTT::log(RTT::Info) << "CorridorServoing::SweepTracker: Set sweep status to SWEEP_STARTED" << RTT::endlog(); 
                 sweepStatus = SWEEP_STARTED;
             }
             break;
         case SWEEP_STARTED:
             if(fabs(sweepMin - currentSweepAngle) < 0.3)
             {
-                RTT::log(RTT::Info) << "CorridorServoing: Set sweep status to SWEEP_DONE" << RTT::endlog(); 
+                RTT::log(RTT::Info) << "CorridorServoing::SweepTracker: Set sweep status to SWEEP_DONE" << RTT::endlog(); 
                 sweepStatus = SWEEP_DONE;
             }
             break;
     }
+
 }
 
 inline Eigen::Affine3d XFORWARD2YFORWARD(Eigen::Affine3d const& x2x)
