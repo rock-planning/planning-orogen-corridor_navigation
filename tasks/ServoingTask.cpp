@@ -109,8 +109,6 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
 		noSweepCnt = 0;
 	    }
 	    
-	    myfile << fabs(currentSweepAngle - lastSweepAngle) << " " << currentSweepAngle << std::endl;
-	    
 	    //device seems not to be sweeping at all
 	    if(noSweepCnt > noSweepLimit)
 	    {
@@ -713,6 +711,10 @@ void ServoingTask::updateHook()
         RTT::log(RTT::Debug) << "CorridorServoing: Trajectory port not connected, not planning " << RTT::endlog();
         return;
     }
+    
+    Eigen::Affine3d body2RangeDataInput;
+    _laser2body_center.get(base::Time::now(), body2RangeDataInput);
+    frontInput.tracker.updateSweepingState(body2RangeDataInput);
     
     //wait for the sweep to finish before we do a replan
     if(frontInput.tracker.isSweeping())// || backInput.tracker.isSweeping())
