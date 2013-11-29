@@ -77,6 +77,8 @@ void ServoingTask::SweepTracker::reset()
 
 void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rangeData2Body)
 {
+    RTT::log(RTT::Info) << "updateSweepingState" << RTT::endlog();
+
     //for now we only assume a rotation around X
     Vector3d angles = rangeData2Body.rotation().eulerAngles(2,1,0);
 
