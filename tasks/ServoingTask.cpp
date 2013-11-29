@@ -289,6 +289,7 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
         RTT::log(RTT::Info) << "CorridorServoing: Interpolated transformation laser2body_center not available" << RTT::endlog();
         return;
     }
+    sweepTransformCallback(ts);
 
     if (task->xForward) {
         rangeData2BodyCenterTR = XFORWARD2YFORWARD(rangeData2BodyCenterTR);
