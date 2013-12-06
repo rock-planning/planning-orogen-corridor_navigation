@@ -693,6 +693,8 @@ void ServoingTask::updateHook()
 {
     ServoingTaskBase::updateHook();
 
+    _debug_sweep_status.write((int)frontInput.tracker.getSweepStatus());
+
     if(justStarted)
     {
         RTT::log(RTT::Debug) << "CorridorServoing: Waiting for inital spot to be marked as traversable" << RTT::endlog();

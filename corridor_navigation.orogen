@@ -55,7 +55,10 @@ task_context "ServoingTask" do
 	    doc 'debug frame. This is the frame of the laser scan in respect to the map.'
 	   
     output_port('debug_heading_frame', '/base/samples/RigidBodyState').
-	    doc 'Debug frame describing the heading orientation'	   
+	    doc 'Debug frame describing the heading orientation'
+
+    output_port('debug_sweep_status','int').
+        doc 'Current tracked sweep angle'	   
 
     operation('setMap').
 	argument('map', 'std/vector</envire/BinaryEvent>').
