@@ -291,7 +291,11 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
         RTT::log(RTT::Info) << "CorridorServoing: Interpolated transformation laser2body_center not available" << RTT::endlog();
         return;
     }
-    sweepTransformCallback(ts);
+    /*
+     * The sweepTransformCallback is only guaranteed to take place if the components tilt_scan servo_dynamixel are used.
+     * In case the callBack does not happen uncomment the following line to execute it each time a laser scan is received
+     */
+    //sweepTransformCallback(ts);
 
     if (task->xForward) {
         rangeData2BodyCenterTR = XFORWARD2YFORWARD(rangeData2BodyCenterTR);
