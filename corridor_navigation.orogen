@@ -60,6 +60,12 @@ task_context "ServoingTask" do
     output_port('debug_sweep_status','int').
         doc 'Current tracked sweep angle'	   
 
+    output_port('count_no_trajectory','int').
+        doc 'Counter of the number of times in a row that no trajectory cannot be found even if the searching area is not unknown'	   
+
+    output_port('count_unknown_trajectory','int').
+        doc 'Counter of the number of times in a row that no trajectory cannot be found beacuase of passing through unknown area'	   
+
     operation('setMap').
 	argument('map', 'std/vector</envire/BinaryEvent>').
 	argument('mapId', 'std/string').

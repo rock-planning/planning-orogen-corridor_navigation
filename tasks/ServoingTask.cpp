@@ -799,6 +799,8 @@ void ServoingTask::updateHook()
                     noTrCounter = 0;
                     break;
             };
+            _count_no_trajectory.write(noTrCounter);
+            _count_unknown_trajectory.write(unknownTrCounter);
         }
         else
         {
