@@ -459,6 +459,8 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
     double absolute_heading = 0;
     RTT::FlowStatus retDiffHeading = _heading.read(relative_heading);
     RTT::FlowStatus retAbsoluteHeading = _absolute_heading.read(absolute_heading);
+    
+
     if((retDiffHeading == RTT::NoData) && (retAbsoluteHeading == RTT::NoData))
     {
         //write empty trajectory to stop robot
@@ -748,7 +750,26 @@ void ServoingTask::updateHook()
         RTT::log(RTT::Info) << "CorridorServoing: Waiting for sweep to finish" << RTT::endlog();
         return;
     }
+    
+    //New port to allow planning or just build the local map
+    //Only plan if the port do_planning is receiving True or there is no data in it
+    RTT::FlowStatus retDoPlanning = _do_planning.read(doPlanning);
 
+    if(retDoPlanning == RTT::NoData)
+    {
+        // As default do planning
+        doPlanning = true;
+    }
+
+    if(!doPlanning)
+    {
+        // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
+        _trajectory.write(std::vector<base::Trajectory>());
+        // Sets the number of attempts to zero
+        noTrCounter = -1;
+        unknownTrCounter = -1;
+    }
+    
     //if we got new sensor information 
     //try to perform a replan
     if(doPlanning && allowPlanning)
@@ -799,8 +820,7 @@ void ServoingTask::updateHook()
                     noTrCounter = 0;
                     break;
             };
-            _count_no_trajectory.write(noTrCounter);
-            _count_unknown_trajectory.write(unknownTrCounter);
+
         }
         else
         {
@@ -810,9 +830,14 @@ void ServoingTask::updateHook()
             //and hope that the sweep will make it consistens again
 /*            frontInput.tracker.triggerSweepTracking();
             backInput.tracker.triggerSweepTracking();*/            
+
         }
+
     }
-        
+
+    _count_no_trajectory.write(noTrCounter);
+    _count_unknown_trajectory.write(unknownTrCounter);
+
 }
 
 // void ServoingTask::errorHook()
