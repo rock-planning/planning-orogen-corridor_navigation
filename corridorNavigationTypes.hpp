@@ -4,16 +4,15 @@
 #include <vfh_star/VFH.h>
 #include <vfh_star/TreeSearch.h>
 #include <base/float.h>
-// Load the base typekit to get Pose_m, used to create the vfh_star::TreeNode
-// wrapper
-#include <base/Types.hpp>
+#include <base/m_types/Pose.hpp>
 #include <vector>
 #include <corridor_planner/corridors.hh>
 
 namespace wrappers {
     namespace vfh_star {
         struct TreeNode {
-            int parent;
+            //id for tree flattening and reconstruction
+            int nodeId;
 
             // use the marshalled version of pose from the base typekit
             base::Pose_m pose;
@@ -22,6 +21,7 @@ namespace wrappers {
             double direction;
             double positionTolerance;
             double headingTolerance;
+            std::vector< int > childs;
         };
 
         struct Tree {

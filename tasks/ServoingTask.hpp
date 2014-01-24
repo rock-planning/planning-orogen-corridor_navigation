@@ -10,29 +10,107 @@
 namespace corridor_navigation {
     
     enum SweepStatus {
-	WAITING_FOR_START,
-	SWEEP_STARTED,
-	SWEEP_DONE,
-	SWEEP_UNTRACKED,
+	TRACKER_INIT,
+        WAITING_FOR_START,
+        SWEEP_STARTED,
+        SWEEP_DONE,
     };
     
     class ServoingTask : public ServoingTaskBase
     {
 	friend class ServoingTaskBase;
     protected:
+        
+        class SweepTracker
+        {
+            double sweepMin;
+            double sweepMax;
+            
+            double lastSweepAngle;
+            
+            int noSweepCnt;
+            int noSweepLimit;
+            
+            bool foundMin;
+            bool foundMax;
+            
+            SweepStatus sweepStatus;
+        public:
+            SweepTracker();
+            void updateSweepingState(Eigen::Affine3d const& rangeDataInput2Body);
+            
+            void reset();
+            
+            double getMinAngle() const 
+            {
+                return sweepMin;
+            }
+
+            double getMaxAngle() const 
+            {
+                return sweepMax;
+            }
+
+            SweepStatus getSweepStatus() const
+            {
+                return sweepStatus;
+            };
+            
+            bool isSweeping()
+            {
+	        return (sweepStatus != SWEEP_DONE);
+            }
+            
+            void triggerSweepTracking()
+            {
+                if(sweepStatus == SWEEP_DONE)
+                    sweepStatus = WAITING_FOR_START;
+            };
+            
+            bool isSweepDone() const
+            {
+	        return (sweepStatus == SWEEP_DONE);
+            };
+            
+            
+            bool initDone() const
+            {
+	        return (sweepStatus != TRACKER_INIT);
+            }
+
+        };
+        
+        
+        class RangeDataInput {
+        public:
+            RangeDataInput(transformer::Transformation &rangeData2Body, ServoingTask *task);
+            void addLaserScan(const base::Time& ts, const base::samples::LaserScan& scan_reading); 
+            SweepTracker tracker;
+        private:
+            transformer::Transformation &rangeData2Body;
+            void sweepTransformCallback(const base::Time &ts);
+            ServoingTask *task;
+        };
+        
+        RangeDataInput frontInput;
+        RangeDataInput backInput;
+        
 	/** Handler for the setMap operation
-         */
+        */
         virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
 	
 	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
 	vfh_star::TraversabilityMapGenerator *mapGenerator;
+
+        virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
+
+        virtual void scan_samples_backTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_back_sample);
+
+        virtual void velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample);
 	
-	/** callback to receive laser scanner readings*/
-	void scan_callback( base::Time ts, const base::samples::LaserScan& scan_reading );
-
-	virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
-
+        void bodyCenter2OdoCallback(const base::Time &ts);
+        
 	/**
 	 * Copies the data from the map generator to trGrid 
 	 **/
@@ -40,15 +118,19 @@ namespace corridor_navigation {
 	
 	///Last transformation from body to odometry
 	Eigen::Affine3d bodyCenter2Odo;
+        Eigen::Affine3d bodyCenter2Body;
 	
 	/** heading, where the robot should drive */
 	double globalHeading;
 	
 	bool gotNewMap;
-	
-        // True just after the startHook, and until we get a proper pose update
+	bool doPlanning;
+	bool allowPlanning;
+	// True just after the startHook, and until we get a proper pose update
 	bool justStarted;
 
+        bool xForward;
+        
 	///Current consecutive planning tries that failed.
 	int noTrCounter;
 	///Maximum number of planning tries that may fail.
@@ -68,13 +150,7 @@ namespace corridor_navigation {
 	
 	corridor_navigation::VFHServoing *vfhServoing;
     
-	double dynamixelMin;
-	double dynamixelMax;
-	SweepStatus sweepStatus;
-        void updateSweepingState(Eigen::Affine3d const& sweep);
-	
-	double dynamixelAngle;
-	Eigen::Affine3d bodyCenter2Body;
+	bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
 	
 	/**
 	 * Apriori map of the environment
@@ -86,6 +162,20 @@ namespace corridor_navigation {
 	 * */
 	Eigen::Affine3d aprioriMap2Body;
 	
+	base::Time mLastReplan;
+	
+        /**
+         * Writes the current grid map onto a port
+         * */
+        void writeGridDump();
+        
+        bool getDriveDirection(double &driveDirection);
+        
+        VFHServoing::ServoingStatus doPathPlanning(std::vector< base::Trajectory >& result);
+        
+        bool checkMapConsistency();
+        base::Time lastGridDumpTime;
+        
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         ServoingTask(std::string const& name = "corridor_navigation::ServoingTask");
