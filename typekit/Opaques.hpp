@@ -3,7 +3,8 @@
 #ifndef __OROGEN_GENERATED_corridor_navigation_USER_MARSHALLING_HH
 #define __OROGEN_GENERATED_corridor_navigation_USER_MARSHALLING_HH
 
-#include <corridor_navigation/Types.hpp>
+#include <corridor_navigation/typekit/OpaqueFwd.hpp>
+#include <corridor_navigation/corridorNavigationTypes.hpp>
 
 namespace orogen_typekits
 {

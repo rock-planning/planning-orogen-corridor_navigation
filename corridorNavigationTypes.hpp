@@ -4,9 +4,7 @@
 #include <vfh_star/VFH.h>
 #include <vfh_star/TreeSearch.h>
 #include <base/float.h>
-// Load the base typekit to get Pose_m, used to create the vfh_star::TreeNode
-// wrapper
-#include <base/Types.hpp>
+#include <base/m_types/Pose.hpp>
 #include <vector>
 #include <corridor_planner/corridors.hh>
 

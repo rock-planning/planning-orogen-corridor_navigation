@@ -10,6 +10,7 @@ struct corridor_navigation::VFHStarTest : public vfh_star::VFHStar
 {
 AngleIntervals allowed_windows;
 
+
 AngleIntervals getNextPossibleDirections(const vfh_star::TreeNode& current_node, double safetyDistance, double robotWidth) const
 {
 
@@ -36,21 +37,14 @@ AngleIntervals getNextPossibleDirections(const vfh_star::TreeNode& current_node,
         return result;
     }
 
-    std::vector<vfh_star::ProjectedPose> getProjectedPoses(const vfh_star::TreeNode& curNode,
-            double heading, double distance) const
+    virtual std::vector< vfh_star::ProjectedPose > getProjectedPoses(const vfh_star::TreeNode& curNode, double heading, double distance) const
     {
+        std::vector< vfh_star::ProjectedPose > ret;
         Eigen::Quaterniond q = Quaterniond(AngleAxisd(heading, Vector3d::UnitZ()));
         Eigen::Vector3d p = curNode.getPose().position + q * Vector3d::UnitY() * distance;
-
         vfh_star::ProjectedPose pr;
-        pr.driveMode = 0;
-        pr.angleTurned = angleDiff(heading, curNode.getYaw());
-        pr.nextPoseExists = true;
-        pr.pose.position = p;
-        pr.pose.orientation = q;
-        std::vector< vfh_star::ProjectedPose > ret;
+        pr.pose = base::Pose(p, q);
         ret.push_back(pr);
-
         return ret;
     }
 };
