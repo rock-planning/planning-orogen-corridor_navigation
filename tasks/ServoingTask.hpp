@@ -107,8 +107,6 @@ namespace corridor_navigation {
 
         virtual void scan_samples_backTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_back_sample);
 
-        virtual void velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample);
-	
         void bodyCenter2OdoCallback(const base::Time &ts);
         
 	/**

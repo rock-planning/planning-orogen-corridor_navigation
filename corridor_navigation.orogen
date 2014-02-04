@@ -4,7 +4,6 @@ version "0.1"
 using_library "vfh_star"
 #using_library "asguard"
 using_library 'corridor_navigation'
-using_library 'velodyne_lidar'
 import_types_from "base"
 import_types_from "corridor_planner"
 import_types_from "envire"
@@ -16,7 +15,6 @@ import_types_from "corridor_navigation/VFHFollowingConf.hpp"
 import_types_from "corridor_navigation/VFHServoingConf.hpp"
 import_types_from "corridor_navigation/VFHStarDebugData.hpp"
 import_types_from "corridorNavigationTypes.hpp"
-import_types_from "velodyne_lidar/MultilevelLaserScan.h"
 
 typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
 
@@ -28,10 +26,6 @@ task_context "ServoingTask" do
     input_port("scan_samples_back", "base/samples/LaserScan").
 	needs_reliable_connection.
         doc "Optional LaserScann of rear scanner"
-
-    input_port("velodyne_scans", "velodyne_lidar::MultilevelLaserScan").
-	needs_reliable_connection.
-        doc 'Optional velodyne scans'
 
     input_port('heading', 'double').
 	doc 'heading in NWU, where the robot should drive'
@@ -70,10 +64,8 @@ task_context "ServoingTask" do
 	transformation("body_center", "odometry")
 	transformation("laser", "body_center")
         transformation("laser_back", "body_center")
-        transformation("velodyne", "body_center")
 	align_port('scan_samples', 0.025)
 	align_port('scan_samples_back', 0.025)
-	align_port('velodyne_scans', 0.08)
 
 	max_latency(0.1)
     end
@@ -111,13 +103,6 @@ task_context "ServoingTask" do
         doc 'setting this value to false disables the planning. Pretty usefull for traversability parameter tuning'
     property('allow_exception', 'bool', true).
         doc 'setting this value to false disables the exception states in case the planner did not find a solution. Pretty usefull for parameter tuning on log data'
-
-    ## velodyne filter parameter
-    property('velodyne_maximum_angle_to_neighbor', 'double', 2.53).
-        doc('valid neigbors have an angle not greater than this value.').
-        doc('the angle is always defined from the origin to the more distant point.')
-    property('velodyne_minimum_valid_neighbors', 'int', 2).
-        doc('minimum amount of valid neigbors')
         
 
     exception_states :no_solution, :trajectory_through_unknown
