@@ -719,7 +719,8 @@ void ServoingTask::updateHook()
         //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
         //RTT::log(RTT::Info) << "Marks the unknown area besides the robot as obstacles" << RTT::endlog();
 
-        //doPlanning = true;
+        doPlanning = true; // I think this one can be removed, but it does not hurt
+
     }
 
     if(gotNewMap)
@@ -756,14 +757,19 @@ void ServoingTask::updateHook()
     RTT::FlowStatus retDoPlanning = _do_planning.read(doPlanning);
 
     // As default do planning. Backward complatibility
-    doPlanning = (retDoPlanning == RTT::NoData);
-    
-    // If don't do planning is not new we don't want to keep sending the empty trajectory
+    if(retDoPlanning == RTT::NoData)
+    {
+        // As default do planning
+        doPlanning = true;
+    }
+
+    //if(!doPlanning)
+    // If !do planning is not new => we don't want to keep sending the empty trajectory
     if(!doPlanning && retDoPlanning==RTT::NewData)
     {
         // We clear the input heading ports to avoid performing planning if nothing is sent to the doPlanning port
-        _absolute_heading.clear();
-        _heading.clear();
+        _absolute_heading.clear(); //Not Tested => This is to avoid start planning with an old heading
+        _heading.clear(); //Not Tested
         // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
         _trajectory.write(std::vector<base::Trajectory>());
         // Sets the number of attempts to zero
@@ -778,7 +784,7 @@ void ServoingTask::updateHook()
     {
         RTT::log(RTT::Info) << "CorridorServoing: Trying to plan" << RTT::endlog();
 
-        //doPlanning = false;
+        doPlanning = false; //I think this can be removed, but it does not hurt
 
         bool gotConsistentMap = checkMapConsistency();
 
