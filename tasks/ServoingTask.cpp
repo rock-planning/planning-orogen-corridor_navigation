@@ -765,14 +765,15 @@ void ServoingTask::updateHook()
 
     //if(!doPlanning)
     // If !do planning is not new => we don't want to keep sending the empty trajectory
-    if(!doPlanning && retDoPlanning==RTT::NewData)
+    if(!doPlanning && (retDoPlanning==RTT::NewData))
     {
         // We clear the input heading ports to avoid performing planning if nothing is sent to the doPlanning port
-        _absolute_heading.clear(); //Not Tested => This is to avoid start planning with an old heading
-        _heading.clear(); //Not Tested
+        // If I do the clear of the port the task forgets the goal heading and does not plan
+        //_absolute_heading.clear(); //Not Tested => This is to avoid start planning with an old heading
+        //_heading.clear(); //Not Tested
         // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
         _trajectory.write(std::vector<base::Trajectory>());
-        // Sets the number of attempts to zero
+        // Sets the number of attempts to -1 to indicate that we are not planning
         noTrCounter = -1;
         unknownTrCounter = -1;
         LOG_DEBUG_S<<"not planning: "<<base::Time::now().toString();
