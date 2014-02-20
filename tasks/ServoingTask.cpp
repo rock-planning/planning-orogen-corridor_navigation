@@ -803,7 +803,8 @@ void ServoingTask::updateHook()
             switch(status)
             {
                 case VFHServoing::TRAJECTORY_THROUGH_UNKNOWN:
-                    noTrCounter = 0;
+                    //noTrCounter = 0;
+                    noTrCounter++;
                     unknownTrCounter++;
                     frontInput.tracker.triggerSweepTracking();
                     if(unknownTrCounter > unknownRetryCount)
