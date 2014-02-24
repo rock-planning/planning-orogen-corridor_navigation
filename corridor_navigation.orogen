@@ -10,10 +10,8 @@ import_types_from "envire"
 
 import_types_from "vfh_star/Types.h"
 import_types_from "vfh_star/TreeSearch.h"
-import_types_from "vfh_star/DebugTypes.h"
 import_types_from "corridor_navigation/VFHFollowingConf.hpp"
 import_types_from "corridor_navigation/VFHServoingConf.hpp"
-import_types_from "corridor_navigation/VFHStarDebugData.hpp"
 import_types_from "corridorNavigationTypes.hpp"
 
 typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
@@ -29,8 +27,6 @@ task_context "ServoingTask" do
         doc("Sweep status of input devices. This port is optional")
 
     output_port("trajectory", "std::vector</base/Trajectory>")
-
-    output_port("vfhDebug", "vfh_star/VFHStarDebugData")
 
     output_port('debugVfhTree', '/vfh_star/Tree').
         doc 'the resulting internal search tree'
