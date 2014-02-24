@@ -35,6 +35,35 @@ namespace wrappers {
 }
 
 namespace corridor_navigation {
+
+    struct SweepStatus
+    {
+        enum State {
+            NOT_SWEEPING,
+            SWEEPING_UP,
+            SWEEPING_DOWN,
+        };
+        ///counter of the sweeps, wraps at 255
+        uint8_t counter;
+        
+        ///current state of sweeping
+        State curState;
+        
+        ///name of the sweeping device
+        std::string sourceName;
+        
+        /**
+         * Return true if one ore more sweeps
+         * in respect to the given state werde done.
+         * 
+         * Also returns true, if not sweeping at all.
+         * */
+        bool isNextSweep(SweepStatus lastState)
+        {
+            return NOT_SWEEPING || lastState.counter != counter;
+        }
+    };
+
     struct TestConf {
         std::vector< double > angular_windows;
         double main_direction;
