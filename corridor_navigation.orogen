@@ -2,9 +2,8 @@ name "corridor_navigation"
 version "0.1"
 
 using_library "vfh_star"
-#using_library "asguard"
+using_library "trajectory_follower"
 using_library 'corridor_navigation'
-using_library 'velodyne_lidar'
 import_types_from "base"
 import_types_from "corridor_planner"
 import_types_from "envire"
@@ -16,64 +15,37 @@ import_types_from "corridor_navigation/VFHFollowingConf.hpp"
 import_types_from "corridor_navigation/VFHServoingConf.hpp"
 import_types_from "corridor_navigation/VFHStarDebugData.hpp"
 import_types_from "corridorNavigationTypes.hpp"
-import_types_from "velodyne_lidar/MultilevelLaserScan.h"
 
 typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
 
 task_context "ServoingTask" do
-    input_port("scan_samples", "base/samples/LaserScan").
-	needs_reliable_connection.
-        doc "LaserScann of front Scanner"
+    input_port('map', ro_ptr('std/vector</envire/BinaryEvent>')).
+        doc("Current local map")
 
-    input_port("scan_samples_back", "base/samples/LaserScan").
-	needs_reliable_connection.
-        doc "Optional LaserScann of rear scanner"
+    input_port("global_trajectory", "std::vector</base/Trajectory>").
+        doc("The global trajectory which is followed by the planner")
 
-    input_port("velodyne_scans", "velodyne_lidar::MultilevelLaserScan").
-	needs_reliable_connection.
-        doc 'Optional velodyne scans'
-
-    input_port('heading', 'double').
-	doc 'heading in NWU, where the robot should drive'
-
-    output_port("segmented", "bool").
-	doc "debug port for log replay"
+    input_port("sweep_status", 'corridor_navigation::SweepStatus').
+        doc("Sweep status of input devices. This port is optional")
 
     output_port("trajectory", "std::vector</base/Trajectory>")
 
-    output_port("gridDump", "vfh_star/GridDump")
-
-    output_port("vfhDebug", "corridor_navigation/VFHStarDebugData")
+    output_port("vfhDebug", "vfh_star/VFHStarDebugData")
 
     output_port('debugVfhTree', '/vfh_star/Tree').
         doc 'the resulting internal search tree'
-
-    output_port('debug_laser_frame', '/base/samples/RigidBodyState').
-	    doc 'debug frame. This is the frame of the laser scan in respect to the map.'
-	   
-    output_port('debug_heading_frame', '/base/samples/RigidBodyState').
-	    doc 'Debug frame describing the heading orientation'	   
-
-    operation('setMap').
-	argument('map', 'std/vector</envire/BinaryEvent>').
-	argument('mapId', 'std/string').
-	argument('mapPose', '/base/samples/RigidBodyState').
-	returns('bool')
-	doc("Sets an apriori map of the environment of the robot. This function must be be called prior to starting the component.")
 
     ##########################
     # transformer parameters
     ##########################
 
     transformer do
-	transformation("body_center", "body")
-	transformation("body_center", "odometry")
-	transformation("laser", "body_center")
-        transformation("laser_back", "body_center")
-        transformation("velodyne", "body_center")
-	align_port('scan_samples', 0.025)
-	align_port('scan_samples_back', 0.025)
-	align_port('velodyne_scans', 0.08)
+        #Transformation from the body center point into the coordinate frame of the output trajectory
+	transformation("body_center", "trajectory")
+        #Transformation from the map to the body center point
+        transformation("body_center", "map")
+        #Transformation from the the body center to the input trajectory
+        transformation("body_center", "global_trajectory")
 
 	max_latency(0.1)
     end
@@ -82,48 +54,35 @@ task_context "ServoingTask" do
         doc('Parametrization of the search')
     property('cost_conf', '/corridor_navigation/VFHServoingConf').
         doc('Parametrization of the cost function')
+
     property('search_horizon', 'double').
-        doc 'the search horizon, in meters'
+        doc('The forward distance on the global trajectory. This is used to generate the heading for the planner.')
+    property('global_trajectory_k0', 'double').
+        doc('the K0 parameter of the trajectory follower for the global trajectory')
+
     property('fail_count',  'int32_t', 1).
     	doc('The number of times in a row where no trajectorie could be computed, that makes the task fail')
     property('unknown_retry_count',  'int32_t', 2).
     	doc('In case the trajectorie goes through unknown terrain, it is cut. This parameter defines how often the task will wait for a sensor sweep to complete before failing.')
-    property('x_forward', 'bool', true).
-        doc('for backward compatibility only. Set to false to use the Y-forward convention. Rock uses a X-forward convention')
+
     property('allowBackwardsDriving', 'bool', true).
         doc('This property specifies if the robot is allowed to drive backwards')
-    property('height_to_ground', 'double', 0).
-        doc 'the distance between the body frame and the ground'
-    property('front_shadow_distance','double',0.0).
-        doc 'the region in front of the laser the laser cannot scan. (if <= 0 it will be computed from the tilt angle)'
-    property('entry_window_size', 'int', 30).
-        doc 'Maximum number of measures that are taken into accound when '+
-          'constructing a cel of the occupancy grid.'
-    property('entry_height_conf', 'int', 0).
-        doc 'Method for constructing each cell height from all the perceived' +
-          ' measures. Codes: 0 - mean, 1 - mean+0.5*std, 2 - median.'
+
     property('replanning_delay', 'double', 10).
         doc 'Minimal time in seconds to wait until another replanning is allowed'
+
     property('min_trajectory_lenght', 'double', 0.2).
         doc('Minimal length of the output trajectory. The planned trajectory gets cut if it goes through unknown terrain.').
         doc("If the resulting trjacetory length is smaler than this parameter an trajectory_through_unknown error will be generated")
-    property('allow_planning', 'bool', true).
-        doc 'setting this value to false disables the planning. Pretty usefull for traversability parameter tuning'
+
     property('allow_exception', 'bool', true).
         doc 'setting this value to false disables the exception states in case the planner did not find a solution. Pretty usefull for parameter tuning on log data'
 
-    ## velodyne filter parameter
-    property('velodyne_maximum_angle_to_neighbor', 'double', 2.53).
-        doc('valid neigbors have an angle not greater than this value.').
-        doc('the angle is always defined from the origin to the more distant point.')
-    property('velodyne_minimum_valid_neighbors', 'int', 2).
-        doc('minimum amount of valid neigbors')
-        
-
     exception_states :no_solution, :trajectory_through_unknown
+    runtime_states :reached_end_of_trajectory
 
     needs_configuration
-    port_driven 'scan_samples'
+    port_driven
     worstcase_processing_time 0.3	
 end
 

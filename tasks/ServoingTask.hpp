@@ -3,134 +3,106 @@
 
 #include "corridor_navigation/ServoingTaskBase.hpp"
 #include <corridor_navigation/VFHServoing.hpp>
-#include <vfh_star/TraversabilityMapGenerator.h>
 #include <Eigen/Core>
-#include <envire/maps/MLSGrid.hpp>
+#include <envire/maps/TraversabilityGrid.hpp>
+#include <trajectory_follower/TrajectoryFollower.hpp>
 
 namespace corridor_navigation {
     
-    enum SweepStatus {
-	TRACKER_INIT,
-        WAITING_FOR_START,
-        SWEEP_STARTED,
-        SWEEP_DONE,
+    class SweepTracker
+    {
+        std::map<std::string, SweepStatus> lastStates;
+        std::map<std::string, bool> trackStates;
+        bool isTracking;
+        
+    public:
+        SweepTracker() : isTracking(false)
+        {
+        }
+        
+        void updateTracker(SweepStatus &curState)
+        {
+            if(isTracking)
+            {
+                std::map<std::string, SweepStatus>::iterator it = lastStates.find(curState.sourceName);
+                if(it == lastStates.end())
+                {
+                    lastStates[curState.sourceName] = curState;
+                    trackStates[curState.sourceName] = true;
+                    return;
+                }
+                if(curState.isNextSweep(it->second))
+                {
+                    trackStates[curState.sourceName] = false;
+                    //check if all states are done
+                    for(std::map<std::string, bool>::const_iterator it = trackStates.begin(); it != trackStates.end(); it++)
+                    {
+                        if(it->second == true)
+                            return;
+                    }
+                    isTracking = false;
+                }
+            }
+            else
+            {
+                lastStates[curState.sourceName] = curState;
+            }
+        }
+        
+        void triggerSweepTracking()
+        {
+            if(lastStates.empty())
+                return;
+            
+            isTracking = true;
+            for(std::map<std::string, SweepStatus>::iterator it = lastStates.begin(); it != lastStates.end(); it++)
+            {
+                trackStates[it->first] = true;
+            }
+        };
+        
+        bool areSweepsDone() const
+        {
+            return !isTracking;
+        };
+
+        void reset()
+        {
+            isTracking = false;
+            trackStates.clear();
+            lastStates.clear();
+        }
     };
+    
+  
     
     class ServoingTask : public ServoingTaskBase
     {
 	friend class ServoingTaskBase;
     protected:
+        SweepTracker frontTracker;
+        SweepTracker backTracker;
         
-        class SweepTracker
-        {
-            double sweepMin;
-            double sweepMax;
-            
-            double lastSweepAngle;
-            
-            int noSweepCnt;
-            int noSweepLimit;
-            
-            bool foundMin;
-            bool foundMax;
-            
-            SweepStatus sweepStatus;
-        public:
-            SweepTracker();
-            void updateSweepingState(Eigen::Affine3d const& rangeDataInput2Body);
-            
-            void reset();
-            
-            double getMinAngle() const 
-            {
-                return sweepMin;
-            }
-
-            double getMaxAngle() const 
-            {
-                return sweepMax;
-            }
-
-            SweepStatus getSweepStatus() const
-            {
-                return sweepStatus;
-            };
-            
-            bool isSweeping()
-            {
-	        return (sweepStatus != SWEEP_DONE);
-            }
-            
-            void triggerSweepTracking()
-            {
-                if(sweepStatus == SWEEP_DONE)
-                    sweepStatus = WAITING_FOR_START;
-            };
-            
-            bool isSweepDone() const
-            {
-	        return (sweepStatus == SWEEP_DONE);
-            };
-            
-            
-            bool initDone() const
-            {
-	        return (sweepStatus != TRACKER_INIT);
-            }
-
-        };
+        void transformationCallback(const base::Time &ts, transformer::Transformation &tr, Eigen::Affine3d &value, bool &gotIt);
         
+        void bodyCenter2MapCallback(const base::Time &ts);
+        void bodyCenter2TrajectoryCallback(const base::Time &ts);
+        void bodyCenter2GlobalTrajectoryCallback(const base::Time &ts);
         
-        class RangeDataInput {
-        public:
-            RangeDataInput(transformer::Transformation &rangeData2Body, ServoingTask *task);
-            void addLaserScan(const base::Time& ts, const base::samples::LaserScan& scan_reading); 
-            SweepTracker tracker;
-        private:
-            transformer::Transformation &rangeData2Body;
-            void sweepTransformCallback(const base::Time &ts);
-            ServoingTask *task;
-        };
-        
-        RangeDataInput frontInput;
-        RangeDataInput backInput;
-        
-	/** Handler for the setMap operation
-        */
-        virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
-	
-	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
-	 * Odometry and laserscans */
-	vfh_star::TraversabilityMapGenerator *mapGenerator;
+        ///Last transformation from body to trajectory coorinate frame
+	Eigen::Affine3d bodyCenter2Trajectory;
+        ///Last transformation from body to map coorinate frame
+        Eigen::Affine3d bodyCenter2Map;
 
-        virtual void scan_samplesTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_sample);
+        ///Last transformation from body to global trajectorie coorinate frame
+        Eigen::Affine3d bodyCenter2GlobalTrajectorie;
 
-        virtual void scan_samples_backTransformerCallback(const base::Time &ts, const ::base::samples::LaserScan &scan_samples_back_sample);
-
-        virtual void velodyne_scansTransformerCallback(const base::Time &ts, const ::velodyne_lidar::MultilevelLaserScan &velodyne_scans_sample);
-	
-        void bodyCenter2OdoCallback(const base::Time &ts);
+        bool gotBodyCenter2Trajectory;
+        bool gotBodyCenter2GlobalTrajectory;
+        bool gotBodyCenter2Map;
         
-	/**
-	 * Copies the data from the map generator to trGrid 
-	 **/
-	void copyGrid();
-	
-	///Last transformation from body to odometry
-	Eigen::Affine3d bodyCenter2Odo;
-        Eigen::Affine3d bodyCenter2Body;
-	
-	/** heading, where the robot should drive */
-	double globalHeading;
-	
 	bool gotNewMap;
-	bool doPlanning;
-	bool allowPlanning;
-	// True just after the startHook, and until we get a proper pose update
-	bool justStarted;
 
-        bool xForward;
-        
 	///Current consecutive planning tries that failed.
 	int noTrCounter;
 	///Maximum number of planning tries that may fail.
@@ -146,35 +118,24 @@ namespace corridor_navigation {
 	envire::Environment env;
 
 	envire::FrameNode *gridPos;
-	envire::Grid<vfh_star::Traversability> *trGrid;
+	envire::TraversabilityGrid *trGrid;
 	
-	corridor_navigation::VFHServoing *vfhServoing;
-    
-	bool markedRobotsPlace; //!< The robots place plus the region in front of it is marked as traversable.
-	
-	/**
-	 * Apriori map of the environment
-	 * */
-	envire::MLSGrid::Ptr aprioriMap; 
-	
-	/**
-	 * Transformation from apriori map to body frame
-	 * */
-	Eigen::Affine3d aprioriMap2Body;
-	
-	base::Time mLastReplan;
-	
-        /**
-         * Writes the current grid map onto a port
-         * */
-        void writeGridDump();
+	corridor_navigation::VFHServoing vfhServoing;
         
-        bool getDriveDirection(double &driveDirection);
+        std::vector<base::Trajectory> trajectories;
+        trajectory_follower::TrajectoryFollower trFollower;
+	base::Time lastSuccessfullPlanning;
+	        
+        bool hasHeading_map;
+        base::Angle heading_map;
         
-        VFHServoing::ServoingStatus doPathPlanning(std::vector< base::Trajectory >& result);
+        bool getDriveDirection(base::Angle& result);
+        bool getMap();
+        bool getGlobalTrajectory();
         
-        bool checkMapConsistency();
-        base::Time lastGridDumpTime;
+        bool doPathPlanning();
+        
+        SweepTracker sweepTracker;
         
     public:
 	EIGEN_MAKE_ALIGNED_OPERATOR_NEW
