@@ -5,6 +5,7 @@
 #include <vfh_star/TreeSearch.h>
 #include <base/float.h>
 #include <base/m_types/Pose.hpp>
+#include <base/wrappers/Eigen.hpp>
 #include <vector>
 #include <corridor_planner/corridors.hh>
 
@@ -26,6 +27,8 @@ namespace wrappers {
 
         struct Tree {
             std::vector< TreeNode > nodes;
+            //Position and orientation of the tree itself
+            base::Pose_m tree2World;
             int finalNode;
         };
     }

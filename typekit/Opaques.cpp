@@ -24,7 +24,7 @@ int addRecursive(::wrappers::vfh_star::Tree& intermediate, const ::vfh_star::Tre
     wrapped_node.nodeId    = nodeId;
     wrapped_node.cost      = node->getCost();
     wrapped_node.heuristic = node->getHeuristic();
-    wrapped_node.direction = node->getDirection();
+    wrapped_node.direction = node->getDirection().getRad();
     wrapped_node.positionTolerance = node->getPositionTolerance();
     wrapped_node.headingTolerance  = node->getHeadingTolerance();
     nodeId++;
@@ -48,13 +48,19 @@ void orogen_typekits::toIntermediate(::wrappers::vfh_star::Tree& intermediate, :
     const vfh_star::TreeNode *finalNode = real_type.getFinalNode();
     int idCnt = 0;
 
+    orogen_typekits::toIntermediate(intermediate.tree2World, base::Pose(real_type.getTreeToWorld()));
+    
     if(root)
         addRecursive(intermediate, root, finalNode, idCnt);
 }
 
 void orogen_typekits::fromIntermediate(::vfh_star::Tree& real_type, ::wrappers::vfh_star::Tree const& intermediate)
 {
-    real_type.clear();    
+    real_type.clear();
+    base::Pose t2w;
+    orogen_typekits::fromIntermediate(t2w, intermediate.tree2World);
+    real_type.setTreeToWorld(t2w.toTransform());
+    
     if(intermediate.nodes.empty())
     {
         return;
@@ -69,7 +75,7 @@ void orogen_typekits::fromIntermediate(::vfh_star::Tree& real_type, ::wrappers::
     
     base::Pose rp;
     fromIntermediate(rp, wrapped_root.pose);
-    vfh_star::TreeNode* root_node = real_type.createRoot(rp, wrapped_root.direction);
+    vfh_star::TreeNode* root_node = real_type.createRoot(rp, base::Angle::fromRad(wrapped_root.direction));
 
     //construct map and create nodes
     for (std::vector<wrappers::vfh_star::TreeNode>::const_iterator it = nodes.begin();
@@ -82,7 +88,7 @@ void orogen_typekits::fromIntermediate(::vfh_star::Tree& real_type, ::wrappers::
         if (it->nodeId == 0)
             node = root_node;
         else
-            node = real_type.createNode(p, wrapped_node.direction);
+            node = real_type.createNode(p, base::Angle::fromRad(wrapped_node.direction));
 
         node->setCost(wrapped_node.cost);
         node->setHeuristic(wrapped_node.heuristic);
