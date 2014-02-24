@@ -15,32 +15,19 @@ AngleIntervals getNextPossibleDirections(const vfh_star::TreeNode& current_node,
 {
 
     TreeSearch::AngleIntervals result;
-    double heading = current_node.getPose().getYaw();
+    base::Angle heading = base::Angle::fromRad(current_node.getPose().getYaw());
     for (unsigned int i = 0; i < allowed_windows.size(); ++i)
     {
-        double from = allowed_windows[i].first + heading;
-        double to   = allowed_windows[i].second + heading;
-
-            if (from > 2 * M_PI)
-                from -= 2 * M_PI;
-            else if (from < 0)
-                from += 2 * M_PI;
-
-            if (to > 2 * M_PI)
-                to -= 2 * M_PI;
-            else if (to < 0)
-                to += 2 * M_PI;
-
-            result.push_back( std::make_pair(from, to) );
-        }
-
-        return result;
+        const base::AngleSegment &cur(allowed_windows[i]);
+        result.push_back(base::AngleSegment(cur.getStart() + heading, cur.getWidth()));
     }
+    return result;
+}
 
-    virtual std::vector< vfh_star::ProjectedPose > getProjectedPoses(const vfh_star::TreeNode& curNode, double heading, double distance) const
+    virtual std::vector< vfh_star::ProjectedPose > getProjectedPoses(const vfh_star::TreeNode& curNode, const base::Angle& heading, double distance) const
     {
         std::vector< vfh_star::ProjectedPose > ret;
-        Eigen::Quaterniond q = Quaterniond(AngleAxisd(heading, Vector3d::UnitZ()));
+        Eigen::Quaterniond q = Quaterniond(AngleAxisd(heading.getRad(), Vector3d::UnitZ()));
         Eigen::Vector3d p = curNode.getPose().position + q * Vector3d::UnitY() * distance;
         vfh_star::ProjectedPose pr;
         pr.pose = base::Pose(p, q);
@@ -75,11 +62,11 @@ bool TestTask::startHook()
 
     search->allowed_windows.clear();
     corridor_navigation::TestConf test_conf = _test_conf.get();
-    for (unsigned int i = 0; i < test_conf.angular_windows.size() / 2; ++i)
+    for (unsigned int i = 0; i < test_conf.angular_windows.size(); i += 2)
     {
-        search->allowed_windows.push_back( std::make_pair(
-            test_conf.angular_windows[i * 2],
-            test_conf.angular_windows[i * 2 + 1]));
+        double from = test_conf.angular_windows[i];
+        double to = test_conf.angular_windows[i + 1];
+        search->allowed_windows.push_back( base::AngleSegment(base::Angle::fromRad(from), to - from));
     }
     
     search->setSearchConf(_search_conf.get());
@@ -91,10 +78,9 @@ bool TestTask::startHook()
 void TestTask::updateHook()
 {
     TestTaskBase::updateHook();
-
-    base::geometry::Spline<3> trajectory =
-        search->getTrajectory(_initial_pose.get(), _test_conf.get().main_direction, _search_horizon.get());
-    _trajectory.write(trajectory);
+    std::vector<base::Trajectory> trajectories = search->getTrajectories(_initial_pose.get(), base::Angle::fromRad(_test_conf.get().main_direction), _search_horizon.get());
+    if(trajectories.size())
+        _trajectory.write(trajectories.begin()->spline);
 
     std::cerr << search->getTree().getSize() << " nodes in tree" << std::endl;
     _search_tree.write(search->getTree());
