@@ -177,10 +177,6 @@ bool ServoingTask::doPathPlanning()
 
     RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
 
-//     if (_vfhDebug.connected()) {
-//         _vfhDebug.write(vfhServoing.getVFHStarDebugData(std::vector<base::Waypoint>()));
-//     }
-        
     if (_debugVfhTree.connected()) {
         _debugVfhTree.write(vfhServoing.getTree());
     }
