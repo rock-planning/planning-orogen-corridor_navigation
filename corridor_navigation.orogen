@@ -31,6 +31,12 @@ task_context "ServoingTask" do
     output_port('debugVfhTree', '/vfh_star/Tree').
         doc 'the resulting internal search tree'
 
+    output_port('horizonDebugData', 'vfh_star::HorizonPlannerDebugData').
+        doc 'debug data of the horizon planner'
+
+    output_port('targetPointOnGlobalTrajectory', 'base::Waypoint').
+        doc 'The current point on the global trajectory from wich the horizon is derived'
+
     ##########################
     # transformer parameters
     ##########################

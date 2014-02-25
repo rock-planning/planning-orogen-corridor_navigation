@@ -117,6 +117,7 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
             {
                 if(state() != REACHED_END_OF_TRAJECTORY)
                 {
+                    _targetPointOnGlobalTrajectory.write(base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.01, 0.0));
                     RTT::log(RTT::Info) << "End of the trajectory reached" << RTT::endlog();
                     state(REACHED_END_OF_TRAJECTORY);
                 }
@@ -124,10 +125,12 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
             }
             break;
         case TrajectoryFollower::RUNNING:
+            _targetPointOnGlobalTrajectory.write(base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.5, 0.0));
             if(state() != RUNNING)
                 state(RUNNING);
             break;
         case TrajectoryFollower::INITIAL_STABILITY_FAILED:
+            _targetPointOnGlobalTrajectory.write(base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.01, 0.0));
             RTT::log(RTT::Error) << "Trajectory follower failed" << RTT::endlog();
             return false;
             break;
@@ -175,6 +178,12 @@ bool ServoingTask::doPathPlanning()
         _debugVfhTree.write(vfhServoing.getTree());
     }
 
+    if(_horizonDebugData.connected())
+    {
+        std::cout << "Writing data " << std::endl;
+        _horizonDebugData.write(vfhServoing.getDebugData());
+    }
+    
     //write the trajectory. It is allways valid
     _trajectory.write(plannedTrajectory);
     
