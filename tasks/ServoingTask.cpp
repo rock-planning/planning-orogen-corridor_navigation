@@ -37,6 +37,12 @@ bool ServoingTask::configureHook()
     unknownRetryCount = _unknown_retry_count.get();
 
     trFollower.getNoOrientationController().setConstants(_search_horizon.get(), _global_trajectory_k0.get());
+    trFollower.setForwardLength(_search_horizon.get());
+
+    trFollower.getNoOrientationController().setPointTurnSpeed(2*M_PI);
+    //disable point turning completely
+    trFollower.getNoOrientationController().setPointTurnLowerLimit(2*M_PI);
+    trFollower.getNoOrientationController().setPointTurnUpperLimit(2*M_PI);
     trFollower.removeTrajectory();
     
     return true;
@@ -137,7 +143,7 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
     }
     
     //note we need the direction in the map coorindate system
-    result = base::Angle::fromRad(base::Pose(bodyCenter2Map).getYaw() + motionCmd(1));
+    result = base::Angle::fromRad(base::Pose(bodyCenter2Map).getYaw() - motionCmd(1));
     return true;
 }
 
