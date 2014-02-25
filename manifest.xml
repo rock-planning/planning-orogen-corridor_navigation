@@ -16,6 +16,7 @@
   <depend package="planning/corridor_navigation"/>
   <depend package="planning/orogen/corridor_planner"/>
 
+  <depend package="control/trajectory_follower"/>
   <depend package="slam/envire"/>
   <depend package="base/orogen/types"/>
   <depend package="drivers/orogen/transformer"/>
