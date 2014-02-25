@@ -170,8 +170,9 @@ bool ServoingTask::doPathPlanning()
     }
     
     std::cout << "Doing it, I am planning !" << std::endl;
+    Eigen::Affine3d map2Trajectory(bodyCenter2Trajectory * bodyCenter2Map.inverse());
     
-    VFHServoing::ServoingStatus status = vfhServoing.getTrajectories(plannedTrajectory, base::Pose(bodyCenter2Map), heading_map, _search_horizon.get(), bodyCenter2Trajectory, _min_trajectory_lenght.get());
+    VFHServoing::ServoingStatus status = vfhServoing.getTrajectories(plannedTrajectory, base::Pose(bodyCenter2Map), heading_map, _search_horizon.get(), map2Trajectory, _min_trajectory_lenght.get());
     base::Time end = base::Time::now();
 
     RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
