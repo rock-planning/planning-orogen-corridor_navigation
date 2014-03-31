@@ -59,8 +59,6 @@ task_context "ServoingTask" do
 
     property('search_horizon', 'double').
         doc('The forward distance on the global trajectory. This is used to generate the heading for the planner.')
-    property('global_trajectory_k0', 'double').
-        doc('the K0 parameter of the trajectory follower for the global trajectory')
 
     property('fail_count',  'int32_t', 1).
     	doc('The number of times in a row where no trajectorie could be computed, that makes the task fail')

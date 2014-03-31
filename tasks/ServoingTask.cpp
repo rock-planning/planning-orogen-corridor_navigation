@@ -36,13 +36,7 @@ bool ServoingTask::configureHook()
     failCount = _fail_count.get();
     unknownRetryCount = _unknown_retry_count.get();
 
-    trFollower.getNoOrientationController().setConstants(_search_horizon.get(), _global_trajectory_k0.get());
     trFollower.setForwardLength(_search_horizon.get());
-
-    trFollower.getNoOrientationController().setPointTurnSpeed(2*M_PI);
-    //disable point turning completely
-    trFollower.getNoOrientationController().setPointTurnLowerLimit(2*M_PI);
-    trFollower.getNoOrientationController().setPointTurnUpperLimit(2*M_PI);
     trFollower.removeTrajectory();
     
     return true;
@@ -105,6 +99,8 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
     Eigen::Vector2d motionCmd;
     TrajectoryFollower::FOLLOWER_STATUS status = 
             trFollower.traverseTrajectory(motionCmd, base::Pose(bodyCenter2GlobalTrajectorie));
+                
+    base::Waypoint goalPoint;
     
     switch(status)
     {
@@ -113,8 +109,7 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
             {
                     if(state() != RUNNING)
                         state(RUNNING);
-                    base::Trajectory curTr(trajectories.front());
-                    trFollower.setNewTrajectory(curTr);
+                    trFollower.setNewTrajectory(trajectories.front());
                     trajectories.erase(trajectories.begin());
                     //recursive call for next part of trajectorie
                     return getDriveDirection(result);
@@ -123,27 +118,42 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
             {
                 if(state() != REACHED_END_OF_TRAJECTORY)
                 {
-                    _targetPointOnGlobalTrajectory.write(base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.01, 0.0));
+                    goalPoint = base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.01, 0.0);
+                    _targetPointOnGlobalTrajectory.write(goalPoint);
                     RTT::log(RTT::Info) << "End of the trajectory reached" << RTT::endlog();
                     state(REACHED_END_OF_TRAJECTORY);
                 }
                 return false;
             }
             break;
+        case TrajectoryFollower::INITIAL_STABILITY_FAILED:
+            //we don't care about initial stability, as we don't use the motion command fromt eh tr follower
         case TrajectoryFollower::RUNNING:
-            _targetPointOnGlobalTrajectory.write(base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.5, 0.0));
+            goalPoint = base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.5, 0.0);
+            _targetPointOnGlobalTrajectory.write(goalPoint);
             if(state() != RUNNING)
                 state(RUNNING);
             break;
-        case TrajectoryFollower::INITIAL_STABILITY_FAILED:
-            _targetPointOnGlobalTrajectory.write(base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.01, 0.0));
-            RTT::log(RTT::Error) << "Trajectory follower failed" << RTT::endlog();
-            return false;
-            break;
+    }
+    
+    //we can't use the motion command of the tr follower. It is in rad/seconds,
+    //but we need a target direction, so we calculate it now from the goal pos of the tr follower
+    
+    //convert goal point into map coordinates
+    Eigen::Affine3d globalTrajectory2Map(bodyCenter2Map * bodyCenter2GlobalTrajectorie.inverse());
+    
+    Vector3d goal_map = globalTrajectory2Map * goalPoint.position;
+    Vector3d vetToGoal_map = goal_map - bodyCenter2Map.translation();
+    vetToGoal_map.normalize();
+    
+    // Calculate rotation angle in radians between the x-axis and the goal vector.
+    double angleToGoal_map = acos(vetToGoal_map.dot(Eigen::Vector3d::UnitX()));
+    if(vetToGoal_map.y() < 0) {
+        angleToGoal_map *= -1;
     }
     
     //note we need the direction in the map coorindate system
-    result = base::Angle::fromRad(base::Pose(bodyCenter2Map).getYaw() - motionCmd(1));
+    result = base::Angle::fromRad(angleToGoal_map);
     return true;
 }
 
