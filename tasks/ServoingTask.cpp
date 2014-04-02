@@ -238,7 +238,7 @@ bool ServoingTask::getMap()
 {
     //receive map
     envire::OrocosEmitter::Ptr binaryEvents;
-    RTT::FlowStatus mapStatus = _map.readNewest(binaryEvents);
+    RTT::FlowStatus mapStatus = _map.readNewest(binaryEvents, false);
     if(mapStatus == RTT::NoData)
     {
         return false;
@@ -268,7 +268,7 @@ bool ServoingTask::getMap()
 
 bool ServoingTask::getGlobalTrajectory()
 {
-    RTT::FlowStatus trStatus = _global_trajectory.readNewest(trajectories);
+    RTT::FlowStatus trStatus = _global_trajectory.readNewest(trajectories, false);
     if(trStatus == RTT::NewData)
     {
         //wait until next position reading comes in
