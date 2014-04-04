@@ -294,7 +294,7 @@ void ServoingTask::updateHook()
 {
     ServoingTaskBase::updateHook();
     
-    SweepStatus swStatus;
+    tilt_scan::SweepStatus swStatus;
     while(_sweep_status.read(swStatus, false) == RTT::NewData)
     {
         sweepTracker.updateTracker(swStatus);

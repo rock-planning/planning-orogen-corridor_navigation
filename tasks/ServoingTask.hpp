@@ -6,12 +6,13 @@
 #include <Eigen/Core>
 #include <envire/maps/TraversabilityGrid.hpp>
 #include <trajectory_follower/TrajectoryFollower.hpp>
+#include <tilt_scan/tilt_scanTypes.hpp>
 
 namespace corridor_navigation {
     
     class SweepTracker
     {
-        std::map<std::string, SweepStatus> lastStates;
+        std::map<std::string, tilt_scan::SweepStatus> lastStates;
         std::map<std::string, bool> trackStates;
         bool isTracking;
         
@@ -20,11 +21,11 @@ namespace corridor_navigation {
         {
         }
         
-        void updateTracker(SweepStatus &curState)
+        void updateTracker(tilt_scan::SweepStatus &curState)
         {
             if(isTracking)
             {
-                std::map<std::string, SweepStatus>::iterator it = lastStates.find(curState.sourceName);
+                std::map<std::string, tilt_scan::SweepStatus>::iterator it = lastStates.find(curState.sourceName);
                 if(it == lastStates.end())
                 {
                     lastStates[curState.sourceName] = curState;
@@ -55,7 +56,7 @@ namespace corridor_navigation {
                 return;
             
             isTracking = true;
-            for(std::map<std::string, SweepStatus>::iterator it = lastStates.begin(); it != lastStates.end(); it++)
+            for(std::map<std::string, tilt_scan::SweepStatus>::iterator it = lastStates.begin(); it != lastStates.end(); it++)
             {
                 trackStates[it->first] = true;
             }

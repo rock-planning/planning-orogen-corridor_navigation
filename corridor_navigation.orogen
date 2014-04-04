@@ -7,6 +7,8 @@ using_library 'corridor_navigation'
 import_types_from "base"
 import_types_from "corridor_planner"
 import_types_from "envire"
+import_types_from "tilt_scan"
+
 
 import_types_from "vfh_star/Types.h"
 import_types_from "vfh_star/TreeSearch.h"
@@ -23,7 +25,7 @@ task_context "ServoingTask" do
     input_port("global_trajectory", "std::vector</base/Trajectory>").
         doc("The global trajectory which is followed by the planner")
 
-    input_port("sweep_status", 'corridor_navigation::SweepStatus').
+    input_port("sweep_status", 'tilt_scan::SweepStatus').
         doc("Sweep status of input devices. This port is optional")
 
     output_port("trajectory", "std::vector</base/Trajectory>")

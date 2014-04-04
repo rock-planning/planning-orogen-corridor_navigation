@@ -18,11 +18,13 @@
 
   <depend package="control/trajectory_follower"/>
   <depend package="slam/envire"/>
+  <depend package="slam/orogen/tilt_scan"/>
   <depend package="base/orogen/types"/>
   <depend package="drivers/orogen/transformer"/>
 
   <depend package="tools/logger"/>
   <depend package="orogen"/>
   <tags>needs_opt</tags>
+  <tags>debug</tags>
 </package>
 
