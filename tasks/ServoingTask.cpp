@@ -699,6 +699,30 @@ void ServoingTask::updateHook()
 {
     ServoingTaskBase::updateHook();
 
+    //New port to allow planning or just build the local map
+    //Only plan if the port do_planning is receiving True or there is no data in it
+    RTT::FlowStatus retDoPlanning = _do_planning.read(doPlanning);
+
+    if(retDoPlanning == RTT::NewData) {
+        LOG_DEBUG_S<<"do planning: "<<doPlanning<<" at: "<<base::Time::now().toString();
+        if(!doPlanning) {
+            // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
+            _trajectory.write(std::vector<base::Trajectory>());
+            // Sets the number of attempts to -1 to indicate that we are not planning
+            noTrCounter = -1;
+            unknownTrCounter = -1;
+            LOG_DEBUG_S<<"not planning: "<<base::Time::now().toString();
+            // write immediately if we are not planning
+            _count_no_trajectory.write(noTrCounter);
+            _count_unknown_trajectory.write(unknownTrCounter);
+        }
+    }
+    else if(retDoPlanning == RTT::NoData) {
+        // As default do planning. Backward complatibility
+        doPlanning = true;
+    }
+
+
     _debug_sweep_status.write((int)frontInput.tracker.getSweepStatus());
 
     if(justStarted)
@@ -751,34 +775,8 @@ void ServoingTask::updateHook()
         LOG_INFO_S << "CorridorServoing: Waiting for sweep to finish" << base::Time::now().toString();
         return;
     }
-    
-    //New port to allow planning or just build the local map
-    //Only plan if the port do_planning is receiving True or there is no data in it
-    RTT::FlowStatus retDoPlanning = _do_planning.read(doPlanning);
 
-    // As default do planning. Backward complatibility
-    if(retDoPlanning == RTT::NoData)
-    {
-        // As default do planning
-        doPlanning = true;
-    }
 
-    //if(!doPlanning)
-    // If !do planning is not new => we don't want to keep sending the empty trajectory
-    if(!doPlanning && (retDoPlanning==RTT::NewData))
-    {
-        // We clear the input heading ports to avoid performing planning if nothing is sent to the doPlanning port
-        // If I do the clear of the port the task forgets the goal heading and does not plan
-        //_absolute_heading.clear(); //Not Tested => This is to avoid start planning with an old heading
-        //_heading.clear(); //Not Tested
-        // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
-        _trajectory.write(std::vector<base::Trajectory>());
-        // Sets the number of attempts to -1 to indicate that we are not planning
-        noTrCounter = -1;
-        unknownTrCounter = -1;
-        LOG_DEBUG_S<<"not planning: "<<base::Time::now().toString();
-    }
-    
     //if we got new sensor information 
     //try to perform a replan
     if(doPlanning && allowPlanning)
@@ -842,12 +840,9 @@ void ServoingTask::updateHook()
             backInput.tracker.triggerSweepTracking();*/            
 
         }
-
+        _count_no_trajectory.write(noTrCounter);
+        _count_unknown_trajectory.write(unknownTrCounter);
     }
-
-    _count_no_trajectory.write(noTrCounter);
-    _count_unknown_trajectory.write(unknownTrCounter);
-
 }
 
 // void ServoingTask::errorHook()

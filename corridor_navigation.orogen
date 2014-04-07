@@ -139,6 +139,7 @@ task_context "ServoingTask" do
 
     needs_configuration
     port_driven 'scan_samples'
+    port_driven 'do_planning'
     worstcase_processing_time 0.3	
 end
 
