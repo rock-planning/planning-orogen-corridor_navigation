@@ -720,6 +720,9 @@ void ServoingTask::updateHook()
     else if(retDoPlanning == RTT::NoData) {
         // As default do planning. Backward complatibility
         doPlanning = true;
+        // write initial values for the deadend status
+        _count_no_trajectory.write(-1);
+        _count_unknown_trajectory.write(-1);
     }
 
 
