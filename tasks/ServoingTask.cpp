@@ -77,7 +77,7 @@ void ServoingTask::SweepTracker::reset()
 
 void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rangeData2Body)
 {
-    RTT::log(RTT::Info) << "updateSweepingState" << RTT::endlog();
+    LOG_INFO_S << "updateSweepingState" << base::Time::now().toString();
 
     //for now we only assume a rotation around X
     Vector3d angles = rangeData2Body.rotation().eulerAngles(2,1,0);
@@ -134,14 +134,14 @@ void ServoingTask::SweepTracker::updateSweepingState(const Eigen::Affine3d& rang
         case WAITING_FOR_START:
             if(fabs(sweepMax - currentSweepAngle) < 0.3)
             {
-                RTT::log(RTT::Info) << "CorridorServoing: Set sweep status to SWEEP_STARTED" << RTT::endlog(); 
+                LOG_INFO_S << "CorridorServoing: Set sweep status to SWEEP_STARTED" << base::Time::now().toString(); 
                 sweepStatus = SWEEP_STARTED;
             }
             break;
         case SWEEP_STARTED:
             if(fabs(sweepMin - currentSweepAngle) < 0.3)
             {
-                RTT::log(RTT::Info) << "CorridorServoing: Set sweep status to SWEEP_DONE" << RTT::endlog(); 
+                LOG_INFO_S << "CorridorServoing: Set sweep status to SWEEP_DONE" << base::Time::now().toString(); 
                 sweepStatus = SWEEP_DONE;
             }
             break;
@@ -174,7 +174,7 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
 
     Eigen::Affine3d velodyne2bodyCenter;
     if(!_velodyne2body_center.get(ts, velodyne2bodyCenter, true)) {
-        RTT::log(RTT::Info) << "CorridorServoing: Interpolated transformation laser2body_center not available" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: Interpolated transformation laser2body_center not available" << base::Time::now().toString();
         return;
     }
 
@@ -184,7 +184,7 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
     
     Eigen::Affine3d bodyCenter2Odo;
     if(!_body_center2odometry.get(ts, bodyCenter2Odo, true)) {
-        RTT::log(RTT::Info) << "CorridorServoing: Interpolated transformation body_center2odometry not available" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: Interpolated transformation body_center2odometry not available" << base::Time::now().toString();
         return;
     }
 
@@ -193,7 +193,7 @@ void ServoingTask::velodyne_scansTransformerCallback(const base::Time &ts, const
     }
 
     if(mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
-        RTT::log(RTT::Info) << "CorridorServoing: velodyne_scansTransformerCallback: Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+        LOG_INFO_S << "CorridorServoing: velodyne_scansTransformerCallback: Local map has been moved, robot has reached the boundary" << base::Time::now().toString();    
     }
 
     
@@ -288,7 +288,7 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
     
     Eigen::Affine3d rangeData2BodyCenterTR;
     if(!rangeData2Body.get(ts, rangeData2BodyCenterTR, true)) {
-        RTT::log(RTT::Info) << "CorridorServoing: Interpolated transformation laser2body_center not available" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: Interpolated transformation laser2body_center not available" << base::Time::now().toString();
         return;
     }
     /*
@@ -303,7 +303,7 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
     
     Eigen::Affine3d bodyCenter2Odo;
     if(!task->_body_center2odometry.get(ts, bodyCenter2Odo, true)) {
-        RTT::log(RTT::Info) << "CorridorServoing: Interpolated transformation body_center2odometry not available" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: Interpolated transformation body_center2odometry not available" << base::Time::now().toString();
         return;
     }
 
@@ -312,7 +312,7 @@ void ServoingTask::RangeDataInput::addLaserScan(const base::Time& ts, const base
     }
 
     if(task->mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
-        RTT::log(RTT::Info) << "CorridorServoing: RangeDataInput:: Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+        LOG_INFO_S << "CorridorServoing: RangeDataInput:: Local map has been moved, robot has reached the boundary" << base::Time::now().toString();    
     }
     
     task->gotNewMap |= task->mapGenerator->addLaserScan(scan_reading, bodyCenter2Odo, rangeData2BodyCenterTR);
@@ -335,7 +335,7 @@ bool ServoingTask::setMap(::std::vector< ::envire::BinaryEvent > const & map, ::
     
     aprioriMap = env.getItem< envire::MLSGrid >(mapId);
     if (!aprioriMap) {
-        RTT::log(RTT::Warning) << "CorridorServoing: Apriori map with id " << mapId << " could not been extracted" << RTT::endlog();
+        LOG_WARN_S << "CorridorServoing: Apriori map with id " << mapId << " could not been extracted" << base::Time::now().toString();
         return false;
     }
     
@@ -367,7 +367,7 @@ bool ServoingTask::configureHook()
     
     //add a third, as a rule of thumb to avoid problems
     boundarySize *= 1.3;
-    RTT::log(RTT::Info) << "CorridorServoing: Boundary size has been set to " << boundarySize << RTT::endlog();
+    LOG_INFO_S << "CorridorServoing: Boundary size has been set to " << boundarySize << base::Time::now().toString();
     
     mapGenerator->setBoundarySize(boundarySize);
     mapGenerator->setMaxStepSize(_search_conf.get().maxStepSize);
@@ -447,7 +447,7 @@ void ServoingTask::writeGridDump()
         } else {
             _gridDump.write(gd);
         }
-        RTT::log(RTT::Debug) << "CorridorServoing: Output the new map" << RTT::endlog();
+        LOG_DEBUG_S << "CorridorServoing: Output the new map" << base::Time::now().toString();
     }
 }
 
@@ -465,7 +465,7 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
     {
         //write empty trajectory to stop robot
         _trajectory.write(std::vector<base::Trajectory>());
-        RTT::log(RTT::Info) << "CorridorServoing: No heading available, stop robot by writing an empty trajectory" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: No heading available, stop robot by writing an empty trajectory" << base::Time::now().toString();
         return false;
     }
     
@@ -482,7 +482,7 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
         
         if(!isnan(angles[2])) {
             globalHeading = angles[2];
-            RTT::log(RTT::Debug) << "CorridorServoing: Set global heading to " << globalHeading << RTT::endlog();
+            LOG_DEBUG_S << "CorridorServoing: Set global heading to " << globalHeading << base::Time::now().toString();
             // Debug output of the received heading.
             base::samples::RigidBodyState rbs_heading;
             rbs_heading.setTransform(bodyCenter2OdoRotated);
@@ -496,8 +496,8 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
         if (retAbsoluteHeading == RTT::NewData) 
         {
             globalHeading = absolute_heading;
-            RTT::log(RTT::Debug) << "Received global goal heading to " << absolute_heading << RTT::endlog();
-            RTT::log(RTT::Debug) << "Set global heading to " << globalHeading << RTT::endlog();
+            LOG_DEBUG_S << "Received global goal heading to " << absolute_heading << base::Time::now().toString();
+            LOG_DEBUG_S << "Set global heading to " << globalHeading << base::Time::now().toString();
         }
     }
 
@@ -535,7 +535,7 @@ VFHServoing::ServoingStatus ServoingTask::doPathPlanning(std::vector< base::Traj
 {
     VFHServoing::ServoingStatus ret;
     
-    RTT::log(RTT::Info) << "" << RTT::endlog(); 
+    LOG_INFO_S << "" << base::Time::now().toString(); 
     base::Time start = base::Time::now();
     
     //set correct Z value according to the map
@@ -554,7 +554,7 @@ VFHServoing::ServoingStatus ServoingTask::doPathPlanning(std::vector< base::Traj
         }
     }
         
-    RTT::log(RTT::Info) << "CorridorServoing: vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
+    LOG_INFO_S << "CorridorServoing: vfh took " << (end-start).toMicroseconds() << base::Time::now().toString(); 
 
     if (_vfhDebug.connected()) {
         _vfhDebug.write(vfhServoing->getVFHStarDebugData(std::vector<base::Waypoint>()));
@@ -572,7 +572,7 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
 //     std::cout << "bodyCenter2OdoCallback at " << ts.toMilliseconds() << std::endl; 
     if(!_body_center2odometry.get(ts, bodyCenter2Odo, false)) 
     {
-        RTT::log(RTT::Info) << "CorridorServoing: Interpolated transformation body_center2odometry not available" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: Interpolated transformation body_center2odometry not available" << base::Time::now().toString();
         return;
     }
     
@@ -587,7 +587,7 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
     
         if(!_body_center2body.get(ts, bodyCenter2Body, true)) 
         {
-            RTT::log(RTT::Info) << "CorridorServoing: bodyCenter2OdoCallback: Interpolated transformation body_center2body not available" << RTT::endlog();
+            LOG_INFO_S << "CorridorServoing: bodyCenter2OdoCallback: Interpolated transformation body_center2body not available" << base::Time::now().toString();
             return;
         }
             
@@ -597,13 +597,13 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
         }
 
         if(mapGenerator->moveMapIfRobotNearBoundary(bodyCenter2Odo.translation())) {
-            RTT::log(RTT::Info) << "CorridorServoing: bodyCenter2OdoCallback: Local map has been moved, robot has reached the boundary" << RTT::endlog();    
+            LOG_INFO_S << "CorridorServoing: bodyCenter2OdoCallback: Local map has been moved, robot has reached the boundary" << base::Time::now().toString();    
         }
 
         Eigen::Affine3d laser2BodyCenter;
         if(!_laser2body_center.get(ts, laser2BodyCenter, true)) 
         {
-            RTT::log(RTT::Info) << "CorridorServoing: bodyCenter2OdoCallback: Interpolated transformation laser2body_center not available" << RTT::endlog();
+            LOG_INFO_S << "CorridorServoing: bodyCenter2OdoCallback: Interpolated transformation laser2body_center not available" << base::Time::now().toString();
             return;
         }
 
@@ -628,14 +628,14 @@ void ServoingTask::bodyCenter2OdoCallback(const base::Time& ts)
             aprioriMap.reset(0);
             gotNewMap = true;
         } else {
-            RTT::log(RTT::Warning) << "CorridorServoing: Apriori map is not available" << RTT::endlog();
+            LOG_WARN_S << "CorridorServoing: Apriori map is not available" << base::Time::now().toString();
         }
 //     //deregister callback
 //     _body_center2odometry.registerUpdateCallback(boost::function<void (const base::Time &ts)>());
 
     setInitialAreaTraversable(laser2BodyCenter);
     
-    RTT::log(RTT::Info) << "justStarted is now False" << RTT::endlog();
+    LOG_INFO_S << "justStarted is now False" << base::Time::now().toString();
     justStarted = false;
     
     }
@@ -666,13 +666,13 @@ void ServoingTask::setInitialAreaTraversable(Eigen::Affine3d laser2BodyCenter)
     double front_shadow = _front_shadow_distance.get();
 
     if ( front_shadow == -1.0 ) {
-        RTT::log(RTT::Info) << "No front shadow distance given, one is to be estimated " << RTT::endlog();
+        LOG_INFO_S << "No front shadow distance given, one is to be estimated " << base::Time::now().toString();
         double laser_height = laser2BodyCenter.translation().z() + _height_to_ground.get();
         front_shadow = frontInput.tracker.getFrontShadow(laser_height);
-        RTT::log(RTT::Info) << "laser to body center x distance: " << laser2BodyCenter.translation().y() << RTT::endlog();
+        LOG_INFO_S << "laser to body center x distance: " << laser2BodyCenter.translation().y() << base::Time::now().toString();
         // The y-translation is used because of this crazy asguard2rock mapping. 
         front_shadow = (fabs(laser2BodyCenter.translation().y()) + front_shadow);
-        RTT::log(RTT::Info) << "Estimated front shadow distance from tilt: " << front_shadow << RTT::endlog();
+        LOG_INFO_S << "Estimated front shadow distance from tilt: " << front_shadow << base::Time::now().toString();
     }
     
     // The area which the robot cannot see will be marked as traversable.
@@ -683,15 +683,15 @@ void ServoingTask::setInitialAreaTraversable(Eigen::Affine3d laser2BodyCenter)
     double travAreaWidth = (search_conf.robotWidth + search_conf.obstacleSafetyDistance + search_conf.stepDistance)*2.0; //More than enough
     double travAreaHeight = travAreaWidth + front_shadow;
 
-    RTT::log(RTT::Info) << "Traversable Box width and height: " << travAreaWidth << ", " << travAreaHeight << RTT::endlog();
-    RTT::log(RTT::Info) << "Traversable Box y_offset: " << front_shadow << RTT::endlog();
+    LOG_INFO_S << "Traversable Box width and height: " << travAreaWidth << ", " << travAreaHeight << base::Time::now().toString();
+    LOG_INFO_S << "Traversable Box y_offset: " << front_shadow << base::Time::now().toString();
     // What is this y_offset doing (last parameter)? It places the robot somehow higher
     //mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), travAreaWidth, travAreaHeight, front_shadow);
     mapGenerator->markUnknownInRectangeAsTraversable(base::Pose(bodyCenter2Odo), travAreaWidth, travAreaHeight, 0.0);
 
     markedRobotsPlace = true;
 
-    RTT::log(RTT::Info) << "Robot place has been marked as traversable" << RTT::endlog();
+    LOG_INFO_S << "Robot place has been marked as traversable" << base::Time::now().toString();
 
 }
 
@@ -703,7 +703,7 @@ void ServoingTask::updateHook()
 
     if(justStarted)
     {
-        RTT::log(RTT::Debug) << "CorridorServoing: Waiting for inital spot to be marked as traversable" << RTT::endlog();
+        LOG_DEBUG_S << "CorridorServoing: Waiting for inital spot to be marked as traversable" << base::Time::now().toString();
         return;
     }
     
@@ -717,7 +717,7 @@ void ServoingTask::updateHook()
         //mark all unknown beside the robot as obstacle, but none in front of the robot
         // Removed: unnecessary restriction of the freedom of movement
         //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
-        //RTT::log(RTT::Info) << "Marks the unknown area besides the robot as obstacles" << RTT::endlog();
+        //LOG_INFO_S << "Marks the unknown area besides the robot as obstacles" << base::Time::now().toString();
 
         doPlanning = true; // I think this one can be removed, but it does not hurt
 
@@ -734,21 +734,21 @@ void ServoingTask::updateHook()
     {
         //write empty trajectory to stop robot
         _trajectory.write(std::vector<base::Trajectory>());
-        RTT::log(RTT::Info) << "CorridorServoing: No heading available, stop robot by writing an empty trajectory" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: No heading available, stop robot by writing an empty trajectory" << base::Time::now().toString();
         return;
     }
      
     //do not plan if nobody listens to us
     if(!_trajectory.connected())
     {
-        RTT::log(RTT::Debug) << "CorridorServoing: Trajectory port not connected, not planning " << RTT::endlog();
+        LOG_DEBUG_S << "CorridorServoing: Trajectory port not connected, not planning " << base::Time::now().toString();
         return;
     }
     
     //wait for the sweep to finish before we do a replan
     if(frontInput.tracker.isSweeping())// || backInput.tracker.isSweeping())
     {
-        RTT::log(RTT::Info) << "CorridorServoing: Waiting for sweep to finish" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: Waiting for sweep to finish" << base::Time::now().toString();
         return;
     }
     
@@ -783,7 +783,7 @@ void ServoingTask::updateHook()
     //try to perform a replan
     if(doPlanning && allowPlanning)
     {
-        RTT::log(RTT::Info) << "CorridorServoing: Trying to plan" << RTT::endlog();
+        LOG_INFO_S << "CorridorServoing: Trying to plan" << base::Time::now().toString();
 
         doPlanning = false; //I think this can be removed, but it does not hurt
 
@@ -792,7 +792,7 @@ void ServoingTask::updateHook()
         if(gotConsistentMap)
         {
 
-	    RTT::log(RTT::Info) << "CorridorServoing: Got consistent map" << RTT::endlog();
+	    LOG_INFO_S << "CorridorServoing: Got consistent map" << base::Time::now().toString();
 
             std::vector<base::Trajectory> plannedTrajectory;
             VFHServoing::ServoingStatus status = doPathPlanning(plannedTrajectory);
@@ -809,7 +809,7 @@ void ServoingTask::updateHook()
                     frontInput.tracker.triggerSweepTracking();
                     if(unknownTrCounter > unknownRetryCount)
                     {
-                        RTT::log(RTT::Error) << "CorridorServoing: Quitting, trying to drive through unknown terrain" << RTT::endlog();
+                        LOG_ERROR_S << "CorridorServoing: Quitting, trying to drive through unknown terrain" << base::Time::now().toString();
                         if(_allow_exception.get())
                             return exception(TRAJECTORY_THROUGH_UNKNOWN); // TODO exception or error states?
                     }
@@ -819,7 +819,7 @@ void ServoingTask::updateHook()
                     noTrCounter++;
                     frontInput.tracker.triggerSweepTracking();
                     if(noTrCounter > failCount) {
-                        RTT::log(RTT::Error) << "CorridorServoing: Quitting, found no solution" << RTT::endlog();
+                        LOG_ERROR_S << "CorridorServoing: Quitting, found no solution" << base::Time::now().toString();
                         if(_allow_exception.get())
                             return exception(NO_SOLUTION); // TODO exception or error states?
                     }
@@ -834,7 +834,7 @@ void ServoingTask::updateHook()
         }
         else
         {
-	    RTT::log(RTT::Info) << "CorridorServoing: Map ist inconsisten, triggering Sweep" << RTT::endlog();
+	    LOG_INFO_S << "CorridorServoing: Map ist inconsisten, triggering Sweep" << base::Time::now().toString();
 
             //the map was inconsistent, wait a whole sweep
             //and hope that the sweep will make it consistens again
@@ -859,7 +859,7 @@ void ServoingTask::stopHook()
 
     //write empty trajectory to stop robot
     _trajectory.write(std::vector<base::Trajectory>());
-    RTT::log(RTT::Info) << "CorridorServoing: Write empty trajectory to stop the robot" << RTT::endlog(); 
+    LOG_INFO_S << "CorridorServoing: Write empty trajectory to stop the robot" << base::Time::now().toString(); 
     ServoingTaskBase::stopHook();
 }
 // void ServoingTask::cleanupHook()
