@@ -11,12 +11,10 @@ import_types_from "tilt_scan"
 
 
 import_types_from "vfh_star/Types.h"
-import_types_from "vfh_star/TreeSearch.h"
 import_types_from "corridor_navigation/VFHFollowingConf.hpp"
 import_types_from "corridor_navigation/VFHServoingConf.hpp"
 import_types_from "corridorNavigationTypes.hpp"
 
-typekit.opaque_type '/vfh_star/Tree', 'wrappers/vfh_star/Tree'
 
 task_context "ServoingTask" do
     input_port('map', ro_ptr('std/vector</envire/BinaryEvent>')).
@@ -30,7 +28,7 @@ task_context "ServoingTask" do
 
     output_port("trajectory", "std::vector</base/Trajectory>")
 
-    output_port('debugVfhTree', '/vfh_star/Tree').
+    output_port('debugVfhTree', '/vfh_star/DebugTree').
         doc 'the resulting internal search tree'
 
     output_port('horizonDebugData', 'vfh_star::HorizonPlannerDebugData').
@@ -105,7 +103,7 @@ task_context "FollowingTask" do
     output_port('trajectory', 'std::vector</base/Trajectory>').
         doc 'the generated trajectory'
 
-    output_port('debugVfhTree', '/vfh_star/Tree').
+    output_port('debugVfhTree', '/vfh_star/DebugTree').
         doc 'the resulting internal search tree'
 
     output_port('debug', '/corridor_navigation/FollowingDebug').
@@ -152,7 +150,7 @@ task_context "TestTask" do
         doc 'the search horizon, in meters'
 
     output_port('trajectory', '/base/geometry/Spline<3>')
-    output_port('search_tree', '/vfh_star/Tree')
+    output_port('search_tree', '/vfh_star/DebugTree')
 end
 
 deployment "corridorNavigationTest" do

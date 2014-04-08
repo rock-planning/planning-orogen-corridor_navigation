@@ -38,6 +38,9 @@ bool ServoingTask::configureHook()
 
     trFollower.setForwardLength(_search_horizon.get());
     trFollower.removeTrajectory();
+
+    //aktivate output of debug tree
+    vfhServoing.activateDebug();
     
     return true;
 }
@@ -188,7 +191,9 @@ bool ServoingTask::doPathPlanning()
     RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
 
     if (_debugVfhTree.connected()) {
-        _debugVfhTree.write(vfhServoing.getTree());
+        const vfh_star::DebugTree *dTree = vfhServoing.getDebugTree();
+        if(dTree)
+            _debugVfhTree.write(*dTree);
     }
 
     if(_horizonDebugData.connected())

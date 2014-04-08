@@ -83,7 +83,11 @@ void TestTask::updateHook()
         _trajectory.write(trajectories.begin()->spline);
 
     std::cerr << search->getTree().getSize() << " nodes in tree" << std::endl;
-    _search_tree.write(search->getTree());
+
+    const vfh_star::DebugTree *dTree = search->getDebugTree();
+    if(dTree)
+        _search_tree.write(*dTree);
+    
     stop();
 }
 

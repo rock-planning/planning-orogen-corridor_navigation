@@ -9,30 +9,6 @@
 #include <vector>
 #include <corridor_planner/corridors.hh>
 
-namespace wrappers {
-    namespace vfh_star {
-        struct TreeNode {
-            //id for tree flattening and reconstruction
-            int nodeId;
-
-            // use the marshalled version of pose from the base typekit
-            base::Pose_m pose;
-            double cost;
-            double heuristic;
-            double direction;
-            double positionTolerance;
-            double headingTolerance;
-            std::vector< int > childs;
-        };
-
-        struct Tree {
-            std::vector< TreeNode > nodes;
-            //Position and orientation of the tree itself
-            base::Pose_m tree2World;
-            int finalNode;
-        };
-    }
-}
 
 namespace corridor_navigation {
 
@@ -44,7 +20,7 @@ namespace corridor_navigation {
     struct FollowingDebug {
         base::Time planning_time;
         base::Vector3d horizon[2];
-        vfh_star::Tree tree;
+        vfh_star::DebugTree tree;
     };
 
     /** Type used to provide a complete problem to the task

@@ -102,7 +102,11 @@ void FollowingTask::updateHook()
 void FollowingTask::outputDebuggingTypes(base::Time const& planning_time)
 {
     if (_debugVfhTree.connected())
-        _debugVfhTree.write(search->getTree());
+    {
+        const vfh_star::DebugTree *dTree = search->getDebugTree();
+        if(dTree)
+            _debugVfhTree.write(*dTree);
+    }
     if (_debug.connected())
     {
         FollowingDebug debug;
@@ -110,7 +114,9 @@ void FollowingTask::outputDebuggingTypes(base::Time const& planning_time)
         pair<base::Vector3d, base::Vector3d> h = search->getHorizon();
         debug.horizon[0] = h.first;
         debug.horizon[1] = h.second;
-        debug.tree = search->getTree();
+        const vfh_star::DebugTree *dTree =search->getDebugTree();
+        if(dTree)
+        debug.tree = *dTree;
         _debug.write(debug);
     }
 
