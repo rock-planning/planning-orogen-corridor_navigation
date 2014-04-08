@@ -746,8 +746,6 @@ void ServoingTask::updateHook()
         //mapGenerator->markUnknownInRectangeAsObstacle(curPose, obstacleDist, obstacleDist, -_search_conf.get().stepDistance * 2.0);
         //LOG_INFO_S << "Marks the unknown area besides the robot as obstacles" << base::Time::now().toString();
 
-        doPlanning = true; // I think this one can be removed, but it does not hurt
-
     }
 
     if(gotNewMap)
@@ -785,8 +783,6 @@ void ServoingTask::updateHook()
     if(doPlanning && allowPlanning)
     {
         LOG_INFO_S << "CorridorServoing: Trying to plan" << base::Time::now().toString();
-
-        doPlanning = false; //I think this can be removed, but it does not hurt
 
         bool gotConsistentMap = checkMapConsistency();
 
