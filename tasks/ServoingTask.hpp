@@ -115,6 +115,9 @@ namespace corridor_navigation {
 	int unknownTrCounter;
 	///Max number of sweep to wait in case of trajectory through unknown terrain
 	int unknownRetryCount;
+        
+        bool didConsistencySweep;
+        double minDriveProbability;
 	
 	envire::Environment env;
 
@@ -135,6 +138,9 @@ namespace corridor_navigation {
         bool getGlobalTrajectory();
         
         bool doPathPlanning();
+        
+        void consistencyCallback(size_t x, size_t y, double &sum, int &cnt);
+        bool isMapConsistent();
         
         SweepTracker sweepTracker;
         

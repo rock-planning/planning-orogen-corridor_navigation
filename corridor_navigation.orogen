@@ -75,6 +75,9 @@ task_context "ServoingTask" do
         doc('Minimal length of the output trajectory. The planned trajectory gets cut if it goes through unknown terrain.').
         doc("If the resulting trjacetory length is smaler than this parameter an trajectory_through_unknown error will be generated")
 
+    property('minDriveProbability', 'double', 0.3).
+        doc("The minimal mean probability the terrain in front of the robot must have, to allow path planning")
+
     property('allow_exception', 'bool', true).
         doc 'setting this value to false disables the exception states in case the planner did not find a solution. Pretty usefull for parameter tuning on log data'
 

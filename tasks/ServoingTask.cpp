@@ -35,6 +35,7 @@ bool ServoingTask::configureHook()
     
     failCount = _fail_count.get();
     unknownRetryCount = _unknown_retry_count.get();
+    minDriveProbability = _minDriveProbability.get();
 
     trFollower.setForwardLength(_search_horizon.get());
     trFollower.removeTrajectory();
@@ -66,7 +67,8 @@ bool ServoingTask::startHook()
     gotBodyCenter2Map = false;
     gotBodyCenter2Trajectory = false;
     gotBodyCenter2GlobalTrajectory = false;
-
+    didConsistencySweep = false;
+    
     sweepTracker.reset();
 
     _body_center2map.registerUpdateCallback(
@@ -157,6 +159,38 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
     
     //note we need the direction in the map coorindate system
     result = base::Angle::fromRad(angleToGoal_map);
+    return true;
+}
+
+void ServoingTask::consistencyCallback(size_t x, size_t y, double& sum, int& cnt)
+{
+    sum += trGrid->getProbability(x, y);
+    cnt++;
+}
+
+bool ServoingTask::isMapConsistent()
+{
+    if(!hasHeading_map)
+    {
+        return false;
+    }
+
+    double forwardDistance = 1.0;
+    Vector3d rectangleCenter = bodyCenter2Map.translation() + bodyCenter2Map.linear() * Vector3d(forwardDistance, 0,0);
+    
+    base::Pose2D rectCenter(Vector2d(rectangleCenter.x(), rectangleCenter.y()), heading_map.getRad());
+    
+    double sum = 0;
+    int cnt = 0;
+    
+    //check for 1 meter into drive direction
+    trGrid->forEachInRectangle(rectCenter, forwardDistance, forwardDistance, boost::bind(&ServoingTask::consistencyCallback, this, _1, _2, boost::ref(sum), boost::ref(cnt)));
+    
+    double meanProbability = sum / cnt;
+    
+    if(meanProbability < minDriveProbability)
+        return false;
+    
     return true;
 }
 
@@ -330,9 +364,20 @@ void ServoingTask::updateHook()
     //TODO add only plan every X cm
     if((base::Time::now() - lastSuccessfullPlanning).toSeconds() > _replanning_delay.get())
     {
+        //test for map consistency
+        if(!didConsistencySweep && !isMapConsistent())
+        {
+            //if it is inconsistent, sweep once
+            sweepTracker.triggerSweepTracking();
+        }
+        
+        if(!sweepTracker.areSweepsDone())
+            return;
+
         if(!doPathPlanning())
             return;
 
+        didConsistencySweep = false;
         lastSuccessfullPlanning = base::Time::now();
     }        
 }
