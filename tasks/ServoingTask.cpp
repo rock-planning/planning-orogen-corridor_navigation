@@ -174,9 +174,12 @@ bool ServoingTask::isMapConsistent()
     {
         return false;
     }
+    
+    Affine3d grid2Map = (trGrid->getFrameNode()->relativeTransform(trGrid->getEnvironment()->getRootNode()));
+    Affine3d bodyCenter2Grid(grid2Map.inverse() * bodyCenter2Map);
 
     double forwardDistance = 1.0;
-    Vector3d rectangleCenter = bodyCenter2Map.translation() + bodyCenter2Map.linear() * Vector3d(forwardDistance, 0,0);
+    Vector3d rectangleCenter = bodyCenter2Grid.translation() + AngleAxisd(heading_map.getRad(), Vector3d::UnitZ()) * Vector3d(forwardDistance, 0,0);
     
     base::Pose2D rectCenter(Vector2d(rectangleCenter.x(), rectangleCenter.y()), heading_map.getRad());
     
@@ -184,7 +187,8 @@ bool ServoingTask::isMapConsistent()
     int cnt = 0;
     
     //check for 1 meter into drive direction
-    trGrid->forEachInRectangle(rectCenter, forwardDistance, forwardDistance, boost::bind(&ServoingTask::consistencyCallback, this, _1, _2, boost::ref(sum), boost::ref(cnt)));
+    if(!trGrid->forEachInRectangle(rectCenter, forwardDistance, forwardDistance, boost::bind(&ServoingTask::consistencyCallback, this, _1, _2, boost::ref(sum), boost::ref(cnt))))
+        std::cout << "Error, consistency check failed, out of Map" << std::endl;;
     
     double meanProbability = sum / cnt;
     
@@ -367,6 +371,7 @@ void ServoingTask::updateHook()
         //test for map consistency
         if(!didConsistencySweep && !isMapConsistent())
         {
+            didConsistencySweep = true;
             //if it is inconsistent, sweep once
             sweepTracker.triggerSweepTracking();
         }
