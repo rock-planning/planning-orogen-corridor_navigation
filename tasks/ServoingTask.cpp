@@ -49,7 +49,7 @@ bool ServoingTask::configureHook()
 void ServoingTask::transformationCallback(const base::Time& ts, transformer::Transformation& tr, Eigen::Affine3d& value, bool& gotIt)
 {
     if(!tr.get(ts, value, false))
-        throw std::runtime_error("Fatal error in transformation stack");
+        return;
     
     gotIt = true;
 }
