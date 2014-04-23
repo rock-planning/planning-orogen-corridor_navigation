@@ -126,6 +126,7 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
                     _targetPointOnGlobalTrajectory.write(trTargetCalculator.getTargetPoint());
                     RTT::log(RTT::Info) << "End of the trajectory reached" << RTT::endlog();
                     state(REACHED_END_OF_TRAJECTORY);
+                    _trajectory.write(std::vector<base::Trajectory>());
                 }
                 return false;
             }
