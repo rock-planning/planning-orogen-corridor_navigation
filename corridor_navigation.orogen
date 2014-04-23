@@ -37,6 +37,9 @@ task_context "ServoingTask" do
     output_port('targetPointOnGlobalTrajectory', 'base::Waypoint').
         doc 'The current point on the global trajectory from wich the horizon is derived'
 
+    output_port('targetPointInMap', 'base::Waypoint').
+        doc 'The current point on the global trajectory from wich the horizon is derived in map frame'
+
     ##########################
     # transformer parameters
     ##########################

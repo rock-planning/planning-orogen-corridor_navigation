@@ -154,6 +154,8 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
         angleToGoal_map *= -1;
     }
     
+    _targetPointInMap.write(base::Waypoint(goal_map, angleToGoal_map, 0, 0));
+    
     //note we need the direction in the map coorindate system
     result = base::Angle::fromRad(angleToGoal_map);
     return true;
