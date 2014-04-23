@@ -13,7 +13,7 @@ using namespace Eigen;
 ServoingTask::ServoingTask(std::string const& name)
     : ServoingTaskBase(name), 
             gotNewMap(false), noTrCounter(0), failCount(0), unknownTrCounter(0), 
-            unknownRetryCount(0), env(), gridPos(NULL), trGrid(NULL), trFollower(0,0, 0)
+            unknownRetryCount(0), env(), gridPos(NULL), trGrid(NULL), trTargetCalculator(0)
 {   
 }
 
@@ -37,8 +37,8 @@ bool ServoingTask::configureHook()
     unknownRetryCount = _unknown_retry_count.get();
     minDriveProbability = _minDriveProbability.get();
 
-    trFollower.setForwardLength(_search_horizon.get());
-    trFollower.removeTrajectory();
+    trTargetCalculator.setForwardLength(_search_horizon.get());
+    trTargetCalculator.removeTrajectory();
 
     //aktivate output of debug tree
     vfhServoing.activateDebug();
@@ -77,6 +77,8 @@ bool ServoingTask::startHook()
         boost::bind(&ServoingTask::transformationCallback , this, _1, boost::ref(_body_center2trajectory), boost::ref(bodyCenter2Trajectory), boost::ref(gotBodyCenter2Trajectory)));
     _body_center2global_trajectory.registerUpdateCallback(boost::bind(&ServoingTask::bodyCenter2GlobalTrajectoryCallback , this, _1));
     
+    trTargetCalculator.removeTrajectory();
+    
     return true;
 }
 
@@ -101,20 +103,18 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
 {
     base::Pose curPose(bodyCenter2GlobalTrajectorie);
     
-    Eigen::Vector2d motionCmd;
-    TrajectoryFollower::FOLLOWER_STATUS status = 
-            trFollower.traverseTrajectory(motionCmd, base::Pose(bodyCenter2GlobalTrajectorie));
+    Eigen::Vector3d targetPoint;
+    TrajectoryTargetCalculator::TARGET_CALCULATOR_STATUS status = 
+            trTargetCalculator.traverseTrajectory(targetPoint, base::Pose(bodyCenter2GlobalTrajectorie));
                 
-    base::Waypoint goalPoint;
-    
     switch(status)
     {
-        case TrajectoryFollower::REACHED_TRAJECTORY_END:
+        case TrajectoryTargetCalculator::REACHED_TRAJECTORY_END:
             if(!trajectories.empty())
             {
                     if(state() != RUNNING)
                         state(RUNNING);
-                    trFollower.setNewTrajectory(trajectories.front());
+                    trTargetCalculator.setNewTrajectory(trajectories.front());
                     trajectories.erase(trajectories.begin());
                     //recursive call for next part of trajectorie
                     return getDriveDirection(result);
@@ -123,19 +123,15 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
             {
                 if(state() != REACHED_END_OF_TRAJECTORY)
                 {
-                    goalPoint = base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.01, 0.0);
-                    _targetPointOnGlobalTrajectory.write(goalPoint);
+                    _targetPointOnGlobalTrajectory.write(trTargetCalculator.getTargetPoint());
                     RTT::log(RTT::Info) << "End of the trajectory reached" << RTT::endlog();
                     state(REACHED_END_OF_TRAJECTORY);
                 }
                 return false;
             }
             break;
-        case TrajectoryFollower::INITIAL_STABILITY_FAILED:
-            //we don't care about initial stability, as we don't use the motion command fromt eh tr follower
-        case TrajectoryFollower::RUNNING:
-            goalPoint = base::Waypoint(trFollower.getCurvePoint().pose.position, trFollower.getCurvePoint().pose.heading, 0.5, 0.0);
-            _targetPointOnGlobalTrajectory.write(goalPoint);
+        case TrajectoryTargetCalculator::RUNNING:
+            _targetPointOnGlobalTrajectory.write(trTargetCalculator.getTargetPoint());
             if(state() != RUNNING)
                 state(RUNNING);
             break;
@@ -147,13 +143,14 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
     //convert goal point into map coordinates
     Eigen::Affine3d globalTrajectory2Map(bodyCenter2Map * bodyCenter2GlobalTrajectorie.inverse());
     
-    Vector3d goal_map = globalTrajectory2Map * goalPoint.position;
-    Vector3d vetToGoal_map = goal_map - bodyCenter2Map.translation();
-    vetToGoal_map.normalize();
+    Vector3d goal_map = globalTrajectory2Map * targetPoint;
+    Vector3d vecToGoal_map = goal_map - bodyCenter2Map.translation();
+    vecToGoal_map.z() = 0;
+    vecToGoal_map.normalize();
     
     // Calculate rotation angle in radians between the x-axis and the goal vector.
-    double angleToGoal_map = acos(vetToGoal_map.dot(Eigen::Vector3d::UnitX()));
-    if(vetToGoal_map.y() < 0) {
+    double angleToGoal_map = acos(vecToGoal_map.dot(Eigen::Vector3d::UnitX()));
+    if(vecToGoal_map.y() < 0) {
         angleToGoal_map *= -1;
     }
     
@@ -318,13 +315,13 @@ bool ServoingTask::getGlobalTrajectory()
         hasHeading_map = false;
         if(trajectories.empty())
         {
-            trFollower.removeTrajectory();
+            trTargetCalculator.removeTrajectory();
             _trajectory.write(std::vector<base::Trajectory>());
         }
         else
         {
             std::cout << "ServoingTask::Got new Trajectory" << std::endl;
-            trFollower.setNewTrajectory(trajectories.front());
+            trTargetCalculator.setNewTrajectory(trajectories.front());
             trajectories.erase(trajectories.begin());
         }
     }

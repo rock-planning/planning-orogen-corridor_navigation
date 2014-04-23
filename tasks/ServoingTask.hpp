@@ -5,7 +5,7 @@
 #include <corridor_navigation/VFHServoing.hpp>
 #include <Eigen/Core>
 #include <envire/maps/TraversabilityGrid.hpp>
-#include <trajectory_follower/TrajectoryFollower.hpp>
+#include <trajectory_follower/TrajectoryTargetCalculator.hpp>
 #include <tilt_scan/tilt_scanTypes.hpp>
 
 namespace corridor_navigation {
@@ -127,7 +127,7 @@ namespace corridor_navigation {
 	corridor_navigation::VFHServoing vfhServoing;
         
         std::vector<base::Trajectory> trajectories;
-        trajectory_follower::TrajectoryFollower trFollower;
+        trajectory_follower::TrajectoryTargetCalculator trTargetCalculator;
 	base::Time lastSuccessfullPlanning;
 	        
         bool hasHeading_map;
