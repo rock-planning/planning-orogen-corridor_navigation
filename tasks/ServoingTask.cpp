@@ -86,7 +86,7 @@ void ServoingTask::bodyCenter2GlobalTrajectoryCallback(const base::Time& ts)
 {
     if(!_body_center2global_trajectory.get(ts, bodyCenter2GlobalTrajectorie, false))
     {
-        throw std::runtime_error("Fatal error in transformation stack");
+        return;
     }
     
     gotBodyCenter2GlobalTrajectory = true;
