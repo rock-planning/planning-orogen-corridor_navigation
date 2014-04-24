@@ -29,6 +29,12 @@ bool ServoingTask::configureHook()
     if (!ServoingTaskBase::configureHook())
         return false;
 
+    _body_center2map.registerUpdateCallback(
+        boost::bind(&ServoingTask::transformationCallback , this, _1, boost::ref(_body_center2map), boost::ref(bodyCenter2Map), boost::ref(gotBodyCenter2Map)));
+    _body_center2trajectory.registerUpdateCallback(
+        boost::bind(&ServoingTask::transformationCallback , this, _1, boost::ref(_body_center2trajectory), boost::ref(bodyCenter2Trajectory), boost::ref(gotBodyCenter2Trajectory)));
+    _body_center2global_trajectory.registerUpdateCallback(boost::bind(&ServoingTask::bodyCenter2GlobalTrajectoryCallback , this, _1));
+
     vfhServoing.setCostConf(_cost_conf.get());
     vfhServoing.setSearchConf(_search_conf.get());
     vfhServoing.setAllowBackwardDriving(_allowBackwardsDriving.get());
@@ -59,6 +65,8 @@ bool ServoingTask::startHook()
 {  
     if(!ServoingTaskBase::startHook())
 	return false;
+
+    state(INPUT_TRAJECTORY_EMPTY);
     
     gotNewMap = false;
     hasHeading_map = false;
@@ -70,12 +78,6 @@ bool ServoingTask::startHook()
     didConsistencySweep = false;
     
     sweepTracker.reset();
-
-    _body_center2map.registerUpdateCallback(
-        boost::bind(&ServoingTask::transformationCallback , this, _1, boost::ref(_body_center2map), boost::ref(bodyCenter2Map), boost::ref(gotBodyCenter2Map)));
-    _body_center2trajectory.registerUpdateCallback(
-        boost::bind(&ServoingTask::transformationCallback , this, _1, boost::ref(_body_center2trajectory), boost::ref(bodyCenter2Trajectory), boost::ref(gotBodyCenter2Trajectory)));
-    _body_center2global_trajectory.registerUpdateCallback(boost::bind(&ServoingTask::bodyCenter2GlobalTrajectoryCallback , this, _1));
     
     trTargetCalculator.removeTrajectory();
     
@@ -121,7 +123,7 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
             }
             else
             {
-                if(state() != REACHED_END_OF_TRAJECTORY)
+		if((state() != INPUT_TRAJECTORY_EMPTY) && (state() != REACHED_END_OF_TRAJECTORY))
                 {
                     _targetPointOnGlobalTrajectory.write(trTargetCalculator.getTargetPoint());
                     RTT::log(RTT::Info) << "End of the trajectory reached" << RTT::endlog();
@@ -318,6 +320,8 @@ bool ServoingTask::getGlobalTrajectory()
         hasHeading_map = false;
         if(trajectories.empty())
         {
+            if(state() != INPUT_TRAJECTORY_EMPTY)
+                state(INPUT_TRAJECTORY_EMPTY);
             trTargetCalculator.removeTrajectory();
             _trajectory.write(std::vector<base::Trajectory>());
         }
@@ -326,6 +330,9 @@ bool ServoingTask::getGlobalTrajectory()
             std::cout << "ServoingTask::Got new Trajectory" << std::endl;
             trTargetCalculator.setNewTrajectory(trajectories.front());
             trajectories.erase(trajectories.begin());
+            if(state() != RUNNING)
+                state(RUNNING);
+
         }
     }
     return trStatus != RTT::NoData;
