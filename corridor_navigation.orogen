@@ -40,6 +40,9 @@ task_context "ServoingTask" do
     output_port('targetPointInMap', 'base::Waypoint').
         doc 'The current point on the global trajectory from wich the horizon is derived in map frame'
 
+    output_port('debugMap', ro_ptr('std/vector</envire/BinaryEvent>')).
+        doc("Current local map")
+
     ##########################
     # transformer parameters
     ##########################

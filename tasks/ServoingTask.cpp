@@ -230,6 +230,11 @@ bool ServoingTask::doPathPlanning()
 
     RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
 
+    envire::OrocosEmitter emitter(vfhServoing.getInternalEnvironment(), _debugMap);
+    emitter.setTime(base::Time::now());
+    emitter.flush();
+
+    
     if (_debugVfhTree.connected()) {
         const vfh_star::DebugTree *dTree = vfhServoing.getDebugTree();
         if(dTree)
