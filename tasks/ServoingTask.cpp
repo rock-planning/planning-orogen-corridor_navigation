@@ -340,6 +340,13 @@ bool ServoingTask::getGlobalTrajectory()
 
         }
     }
+    if(trStatus == RTT::NoData)
+    {
+        if(state() != INPUT_TRAJECTORY_EMPTY)
+            state(INPUT_TRAJECTORY_EMPTY);
+        trTargetCalculator.removeTrajectory();
+        _trajectory.write(std::vector<base::Trajectory>());
+    }
     return trStatus != RTT::NoData;
 }
 
