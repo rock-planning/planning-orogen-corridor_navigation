@@ -778,9 +778,12 @@ void ServoingTask::updateHook()
     }
 
 
+    bool time2plan = (((base::Time::now() - mLastReplan).toSeconds()) > _replanning_delay.get());
+    LOG_INFO_S << "Passed time since last plan: " << (base::Time::now() - mLastReplan).toSeconds();
+
     //if we got new sensor information 
     //try to perform a replan
-    if(doPlanning && allowPlanning)
+    if(doPlanning && allowPlanning && time2plan)
     {
         LOG_INFO_S << "CorridorServoing: Trying to plan" << base::Time::now().toString();
 
