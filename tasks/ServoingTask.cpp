@@ -716,13 +716,18 @@ void ServoingTask::updateHook()
             _count_no_trajectory.write(noTrCounter);
             _count_unknown_trajectory.write(unknownTrCounter);
         }
+        else if (doPlanning){
+            // Once we give the instruction to plan again start from 0 the count of attempts
+            noTrCounter = 0;
+            unknownTrCounter = 0;
+        }
     }
     else if(retDoPlanning == RTT::NoData) {
         // As default do planning. Backward complatibility
         doPlanning = true;
         // write initial values for the deadend status
-        _count_no_trajectory.write(-1);
-        _count_unknown_trajectory.write(-1);
+        noTrCounter = 0;
+        unknownTrCounter = 0;
     }
 
 
