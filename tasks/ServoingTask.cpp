@@ -713,10 +713,8 @@ void ServoingTask::updateHook()
             unknownTrCounter = -1;
             LOG_DEBUG_S<<"not planning: "<<base::Time::now().toString();
             // write immediately if we are not planning
-            _count_no_trajectory.write(noTrCounter);
-            _count_unknown_trajectory.write(unknownTrCounter);
         }
-        else if (doPlanning){
+        else {
             // Once we give the instruction to plan again start from 0 the count of attempts
             noTrCounter = 0;
             unknownTrCounter = 0;
@@ -729,6 +727,8 @@ void ServoingTask::updateHook()
         noTrCounter = 0;
         unknownTrCounter = 0;
     }
+    _count_no_trajectory.write(noTrCounter);
+    _count_unknown_trajectory.write(unknownTrCounter);
 
 
     _debug_sweep_status.write((int)frontInput.tracker.getSweepStatus());
