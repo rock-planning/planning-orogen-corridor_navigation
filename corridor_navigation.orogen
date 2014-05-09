@@ -68,6 +68,9 @@ task_context "ServoingTask" do
 
     output_port('count_unknown_trajectory','int').
         doc 'Counter of the number of times in a row that no trajectory cannot be found beacuase of passing through unknown area'	   
+    
+    output_port('is_planning', 'bool').
+        doc 'True when the robot is planning. If false the robot is only building the local map.'
 
     operation('setMap').
 	argument('map', 'std/vector</envire/BinaryEvent>').

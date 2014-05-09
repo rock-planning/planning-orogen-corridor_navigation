@@ -410,7 +410,7 @@ bool ServoingTask::startHook()
 
     frontInput.tracker.reset();
     backInput.tracker.reset();
-
+    
     _body_center2odometry.registerUpdateCallback(boost::bind(&ServoingTask::bodyCenter2OdoCallback , this, _1));
     
     return true;
@@ -709,28 +709,24 @@ void ServoingTask::updateHook()
             // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
             _trajectory.write(std::vector<base::Trajectory>());
             // Sets the number of attempts to -1 to indicate that we are not planning
-            noTrCounter = -1;
-            unknownTrCounter = -1;
             LOG_DEBUG_S<<"Not planning: "<<base::Time::now().toString();
             // write immediately if we are not planning
         }
         else {
             // Once we give the instruction to plan again start from 0 the count of attempts
-            noTrCounter = 0;
-            unknownTrCounter = 0;
             LOG_DEBUG_S<<"Planning: "<<base::Time::now().toString();
         }
-        _count_no_trajectory.write(noTrCounter);
-        _count_unknown_trajectory.write(unknownTrCounter);
+        _is_planning.write(doPlanning);
+
     }
     else if(retDoPlanning == RTT::NoData) {
         // As default do planning. Backward complatibility
         doPlanning = true;
         // write initial values for the deadend status
-
     }
 
-
+    _count_no_trajectory.write(noTrCounter);
+    _count_unknown_trajectory.write(unknownTrCounter);
 
     _debug_sweep_status.write((int)frontInput.tracker.getSweepStatus());
 
@@ -764,12 +760,12 @@ void ServoingTask::updateHook()
     if(!getDriveDirection(globalHeading))
     {
         //write empty trajectory to stop robot
+        doPlanning = false; // No goal heading -> No planning
+        _is_planning.write(doPlanning);
         _trajectory.write(std::vector<base::Trajectory>());
         LOG_INFO_S << "CorridorServoing: No heading available, stop robot by writing an empty trajectory" << base::Time::now().toString();
         // As we are not planning we set these ports to -1.
         // NOTE: To make the code clearer use a port to say when its planning or not instead of a "code value" for this port
-        _count_no_trajectory.write(-1);
-        _count_unknown_trajectory.write(-1);
         return;
     }
      
@@ -779,6 +775,8 @@ void ServoingTask::updateHook()
         LOG_DEBUG_S << "CorridorServoing: Trajectory port not connected, not planning " << base::Time::now().toString();
         return;
     }
+
+
     
     //wait for the sweep to finish before we do a replan
     if(frontInput.tracker.isSweeping())// || backInput.tracker.isSweeping())
@@ -786,7 +784,6 @@ void ServoingTask::updateHook()
         LOG_INFO_S << "CorridorServoing: Waiting for sweep to finish" << base::Time::now().toString();
         return;
     }
-
 
     bool time2plan = (((base::Time::now() - mLastReplan).toSeconds()) > _replanning_delay.get());
     LOG_INFO_S << "Passed time since last plan: " << (base::Time::now() - mLastReplan).toSeconds();
