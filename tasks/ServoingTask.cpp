@@ -734,12 +734,19 @@ void ServoingTask::updateHook()
             _trajectory.write(std::vector<base::Trajectory>());
             // Sets the number of attempts to -1 to indicate that we are not planning
             LOG_DEBUG_S<<"Not planning: "<<base::Time::now().toString();
+            // Until we change the syskit part to use the port "is_plannning" we keep this -1 solution too
+            noTrCounter = -1;
+            unknownTrCounter = -1;
             // write immediately if we are not planning
         }
         else {
             // Once we give the instruction to plan again start from 0 the count of attempts
             LOG_DEBUG_S<<"Planning: "<<base::Time::now().toString();
+            //noTrCounter = 0;
+            //unknownTrCounter = 0;
         }
+        _count_no_trajectory.write(noTrCounter);
+        _count_unknown_trajectory.write(unknownTrCounter);
         _is_planning.write(doPlanning);
 
     }
@@ -790,6 +797,8 @@ void ServoingTask::updateHook()
         LOG_INFO_S << "CorridorServoing: No heading available, stop robot by writing an empty trajectory" << base::Time::now().toString();
         // As we are not planning we set these ports to -1.
         // NOTE: To make the code clearer use a port to say when its planning or not instead of a "code value" for this port
+        _count_no_trajectory.write(-1);
+        _count_unknown_trajectory.write(-1);
         return;
     }
      
