@@ -349,6 +349,23 @@ bool ServoingTask::setMap(::std::vector< ::envire::BinaryEvent > const & map, ::
     return true;
 }
 
+
+bool ServoingTask::attemptPlanning(double rel_heading)
+{
+    // The method doPathPlanning uses the globalHeading.
+    // We change globalHeading according to the relative received     
+    double currentGlobalHeading = globalHeading;
+    setHeadingFromRelative(rel_heading);
+    std::vector<base::Trajectory> plannedTrajectory;
+    VFHServoing::ServoingStatus status = doPathPlanning(plannedTrajectory);
+    //back to original global heading value
+    LOG_DEBUG_S << "CorridorServoing: Set global heading back to original value" << currentGlobalHeading << base::Time::now().toString();
+    globalHeading = currentGlobalHeading;
+
+    return status == VFHServoing::TRAJECTORY_OK;
+
+}
+
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See ServoingTask.hpp for more detailed
 // documentation about them.
@@ -451,6 +468,25 @@ void ServoingTask::writeGridDump()
     }
 }
 
+void ServoingTask::setHeadingFromRelative(double relative_heading)
+{
+
+    Eigen::Affine3d bodyCenter2OdoRotated = bodyCenter2Odo;
+    bodyCenter2OdoRotated.rotate(Eigen::AngleAxisd(relative_heading, Eigen::Vector3d::UnitZ()));
+    Vector3d angles = bodyCenter2OdoRotated.rotation().eulerAngles(0,1,2);
+
+    if(!isnan(angles[2])) {
+        globalHeading = angles[2];
+        LOG_DEBUG_S << "CorridorServoing: Set global heading to " << globalHeading << base::Time::now().toString();
+        // Debug output of the received heading.
+        base::samples::RigidBodyState rbs_heading;
+        rbs_heading.setTransform(bodyCenter2OdoRotated);
+        rbs_heading.sourceFrame = "robot_heading";
+        rbs_heading.targetFrame = "robot";
+        _debug_heading_frame.write(rbs_heading); 
+    }
+}
+
 bool ServoingTask::getDriveDirection(double& driveDirection)
 {
     // Request the heading, which describes a relative orientation, apply it to the current
@@ -475,21 +511,9 @@ bool ServoingTask::getDriveDirection(double& driveDirection)
             globalHeading = relative_heading;
             return false;
         }
+
+        setHeadingFromRelative(relative_heading);
         
-        Eigen::Affine3d bodyCenter2OdoRotated = bodyCenter2Odo;
-        bodyCenter2OdoRotated.rotate(Eigen::AngleAxisd(relative_heading, Eigen::Vector3d::UnitZ()));
-        Vector3d angles = bodyCenter2OdoRotated.rotation().eulerAngles(0,1,2);
-        
-        if(!isnan(angles[2])) {
-            globalHeading = angles[2];
-            LOG_DEBUG_S << "CorridorServoing: Set global heading to " << globalHeading << base::Time::now().toString();
-            // Debug output of the received heading.
-            base::samples::RigidBodyState rbs_heading;
-            rbs_heading.setTransform(bodyCenter2OdoRotated);
-            rbs_heading.sourceFrame = "robot_heading";
-            rbs_heading.targetFrame = "robot";
-            _debug_heading_frame.write(rbs_heading); 
-        }
     }
     else
     {

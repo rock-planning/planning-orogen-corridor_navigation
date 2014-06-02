@@ -103,7 +103,12 @@ namespace corridor_navigation {
         */
         virtual bool setMap(::std::vector< ::envire::BinaryEvent > const & map, ::std::string const & mapId, ::base::samples::RigidBodyState const & mapPose);
 	
-	/** instance of the TraversabilityMapGenerator, which generates a traversability map from
+	/** Handler for the attemptPlanning operation
+        */
+        virtual bool attemptPlanning(double rel_heading);
+	
+        
+    /** instance of the TraversabilityMapGenerator, which generates a traversability map from
 	 * Odometry and laserscans */
 	vfh_star::TraversabilityMapGenerator *mapGenerator;
 
@@ -175,6 +180,8 @@ namespace corridor_navigation {
          * */
         void writeGridDump();
         
+        void setHeadingFromRelative(double relative_heading);
+
         bool getDriveDirection(double &driveDirection);
         
         VFHServoing::ServoingStatus doPathPlanning(std::vector< base::Trajectory >& result);

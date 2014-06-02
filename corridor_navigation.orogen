@@ -79,6 +79,11 @@ task_context "ServoingTask" do
 	returns('bool')
 	doc("Sets an apriori map of the environment of the robot. This function must be be called prior to starting the component.")
 
+    operation('attemptPlanning').
+	argument('heading', 'double').
+	returns('bool')
+	doc("Tries to plan in the given heading. Only if a trajectory is found true is returned.")
+
     ##########################
     # transformer parameters
     ##########################
