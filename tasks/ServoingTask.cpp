@@ -352,18 +352,29 @@ bool ServoingTask::setMap(::std::vector< ::envire::BinaryEvent > const & map, ::
 
 bool ServoingTask::attemptPlanning(double rel_heading)
 {
-    // The method doPathPlanning uses the globalHeading.
-    // We change globalHeading according to the relative received     
-    double currentGlobalHeading = globalHeading;
-    setHeadingFromRelative(rel_heading);
-    std::vector<base::Trajectory> plannedTrajectory;
-    VFHServoing::ServoingStatus status = doPathPlanning(plannedTrajectory);
-    //back to original global heading value
-    LOG_DEBUG_S << "CorridorServoing: Set global heading back to original value" << currentGlobalHeading << base::Time::now().toString();
-    globalHeading = currentGlobalHeading;
 
-    return status == VFHServoing::TRAJECTORY_OK;
+    LOG_DEBUG_S << "AttemptPlanning starts " << base::Time::now().toString();
+    bool res = false;
 
+    bool gotConsistentMap = checkMapConsistency();
+    if(gotConsistentMap)
+    {
+        LOG_INFO_S << "CorridorServoing: Got consistent map" << base::Time::now().toString();
+        // The method doPathPlanning uses the globalHeading.
+        // We change globalHeading according to the relative received     
+        double currentGlobalHeading = globalHeading;
+        LOG_DEBUG_S << "CorridorServoing: The initial global heading is " << globalHeading << " "  <<base::Time::now().toString();
+        setHeadingFromRelative(rel_heading);
+        LOG_DEBUG_S << "CorridorServoing: attempting heading " << rel_heading << " "  <<base::Time::now().toString();
+        std::vector<base::Trajectory> plannedTrajectory;
+        VFHServoing::ServoingStatus status = doPathPlanning(plannedTrajectory);
+        res = (status == VFHServoing::TRAJECTORY_OK);
+        globalHeading = currentGlobalHeading;
+        LOG_DEBUG_S << "CorridorServoing: Set global heading back to original value" << currentGlobalHeading << " " << base::Time::now().toString();
+        LOG_DEBUG_S << "CorridorServoing: attempt heading status: " <<  res << " " <<base::Time::now().toString();
+    } // Consistent map?
+
+    return res;
 }
 
 /// The following lines are template definitions for the various state machine
