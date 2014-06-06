@@ -84,6 +84,9 @@ task_context "ServoingTask" do
 	returns('bool')
 	doc("Tries to plan in the given heading. Only if a trajectory is found true is returned.")
 
+    operation('resetMap').
+        doc("Reset the traversability grid")
+
     ##########################
     # transformer parameters
     ##########################

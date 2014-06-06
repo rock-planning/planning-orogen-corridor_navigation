@@ -106,6 +106,11 @@ namespace corridor_navigation {
 	/** Handler for the attemptPlanning operation
         */
         virtual bool attemptPlanning(double rel_heading);
+
+        /**
+         * Reset the traversability grid
+         */
+        virtual void resetMap(void);
 	
         
     /** instance of the TraversabilityMapGenerator, which generates a traversability map from

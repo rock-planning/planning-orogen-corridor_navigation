@@ -377,6 +377,15 @@ bool ServoingTask::attemptPlanning(double rel_heading)
     return res;
 }
 
+void ServoingTask::resetMap(void) {
+    LOG_DEBUG_S<<"resetting Map";
+    justStarted = true; // set initial area as traversable
+
+    mapGenerator->setHeightToGround(_height_to_ground.get());
+    mapGenerator->clearMap();
+    mapGenerator->setGridEntriesWindowSize(_entry_window_size);
+}
+
 /// The following lines are template definitions for the various state machine
 // hooks defined by Orocos::RTT. See ServoingTask.hpp for more detailed
 // documentation about them.
