@@ -751,7 +751,9 @@ void ServoingTask::updateHook()
         LOG_DEBUG_S<<"do planning: "<<doPlanning<<" at: "<<base::Time::now().toString();
         if(!doPlanning) {
             // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
-            _trajectory.write(std::vector<base::Trajectory>(1, base::Trajectory()));
+            std::vector<base::Trajectory> tmp = std::vector<base::Trajectory>(1);
+            tmp[0] = base::Trajectory();
+            _trajectory.write(tmp);
             // Sets the number of attempts to -1 to indicate that we are not planning
             LOG_DEBUG_S<<"Not planning: "<<base::Time::now().toString();
             // Until we change the syskit part to use the port "is_plannning" we keep this -1 solution too
