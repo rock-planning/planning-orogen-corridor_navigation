@@ -777,6 +777,21 @@ void ServoingTask::updateHook()
         doPlanning = true;
         // write initial values for the deadend status
     }
+    else {
+        // old data, keep old state
+        if(!doPlanning) {
+            // Port do planning is not allowing plan. An empty trajectory is set to the trajectory follower.
+            std::vector<base::Trajectory> tmp = std::vector<base::Trajectory>(1);
+            tmp[0] = base::Trajectory();
+            _trajectory.write(tmp);
+            // Sets the number of attempts to -1 to indicate that we are not planning
+            LOG_DEBUG_S<<"Not planning (old data): "<<base::Time::now().toString();
+            // Until we change the syskit part to use the port "is_plannning" we keep this -1 solution too
+            noTrCounter = -1;
+            unknownTrCounter = -1;
+            // write immediately if we are not planning
+        }
+    }
 
     _count_no_trajectory.write(noTrCounter);
     _count_unknown_trajectory.write(unknownTrCounter);
