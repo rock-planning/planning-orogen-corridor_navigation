@@ -136,6 +136,7 @@ namespace corridor_navigation {
 	base::Time lastSuccessfullPlanning;
 	        
         base::Angle heading_map;
+        double curDistToGoal;
         
         bool getDriveDirection(base::Angle& result);
         bool getMap();

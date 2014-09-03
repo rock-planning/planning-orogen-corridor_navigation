@@ -179,6 +179,9 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
     Vector3d goal_map = globalTrajectory2Map * targetPoint;
     Vector3d vecToGoal_map = goal_map - bodyCenter2Map.translation();
     vecToGoal_map.z() = 0;
+    
+    curDistToGoal = vecToGoal_map.norm();
+    
     vecToGoal_map.normalize();
     
     // Calculate rotation angle in radians between the x-axis and the goal vector.
@@ -238,7 +241,7 @@ bool ServoingTask::doPathPlanning()
     std::cout << "Doing it, I am planning !" << std::endl;
     Eigen::Affine3d map2Trajectory(bodyCenter2Trajectory * bodyCenter2Map.inverse());
     
-    VFHServoing::ServoingStatus status = vfhServoing.getTrajectories(plannedTrajectory, base::Pose(bodyCenter2Map), heading_map, _search_horizon.get(), map2Trajectory, _min_trajectory_lenght.get());
+    VFHServoing::ServoingStatus status = vfhServoing.getTrajectories(plannedTrajectory, base::Pose(bodyCenter2Map), heading_map, curDistToGoal, map2Trajectory, _min_trajectory_lenght.get());
     base::Time end = base::Time::now();
 
     RTT::log(RTT::Info) << "vfh took " << (end-start).toMicroseconds() << RTT::endlog(); 
