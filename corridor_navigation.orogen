@@ -88,7 +88,7 @@ task_context "ServoingTask" do
         doc 'setting this value to false disables the exception states in case the planner did not find a solution. Pretty usefull for parameter tuning on log data'
 
     exception_states :no_solution, :trajectory_through_unknown
-    runtime_states :reached_end_of_trajectory, :input_trajectory_empty
+    runtime_states :reached_end_of_trajectory, :input_trajectory_empty, :transformation_missing
 
     needs_configuration
     port_driven

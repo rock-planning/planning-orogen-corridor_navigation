@@ -29,10 +29,9 @@ bool ServoingTask::configureHook()
     if (!ServoingTaskBase::configureHook())
         return false;
 
-    _body_center2map.registerUpdateCallback(
-        boost::bind(&ServoingTask::transformationCallback , this, _1, boost::ref(_body_center2map), boost::ref(bodyCenter2Map), boost::ref(gotBodyCenter2Map)));
     _body_center2trajectory.registerUpdateCallback(
         boost::bind(&ServoingTask::transformationCallback , this, _1, boost::ref(_body_center2trajectory), boost::ref(bodyCenter2Trajectory), boost::ref(gotBodyCenter2Trajectory)));
+    _body_center2map.registerUpdateCallback(boost::bind(&ServoingTask::bodyCenter2MapCallback , this, _1));
     _body_center2global_trajectory.registerUpdateCallback(boost::bind(&ServoingTask::bodyCenter2GlobalTrajectoryCallback , this, _1));
 
     vfhServoing.setCostConf(_cost_conf.get());
@@ -69,19 +68,37 @@ bool ServoingTask::startHook()
     state(INPUT_TRAJECTORY_EMPTY);
     
     gotNewMap = false;
-    hasHeading_map = false;
     noTrCounter = 0;
     unknownTrCounter = 0;
     gotBodyCenter2Map = false;
     gotBodyCenter2Trajectory = false;
     gotBodyCenter2GlobalTrajectory = false;
+    gotMap2GlobalTrajectorie = false;
     didConsistencySweep = false;
+    lastSuccessfullPlanning = base::Time();
     
     sweepTracker.reset();
     
     trTargetCalculator.removeTrajectory();
     
     return true;
+}
+
+void ServoingTask::bodyCenter2MapCallback(const base::Time& ts)
+{
+    if(!_body_center2map.get(ts, bodyCenter2Map, false))
+    {
+        return;
+    }
+    
+    gotBodyCenter2Map = true;
+    
+    if(gotBodyCenter2GlobalTrajectory && !gotMap2GlobalTrajectorie)
+    {
+        std::cout << "Setting map2GlobalTrajectorie in bodyCenter2MapCallback" << std::endl;
+        map2GlobalTrajectorie = bodyCenter2GlobalTrajectorie * bodyCenter2Map.inverse();
+        gotMap2GlobalTrajectorie = true;
+    }
 }
 
 void ServoingTask::bodyCenter2GlobalTrajectoryCallback(const base::Time& ts)
@@ -95,19 +112,32 @@ void ServoingTask::bodyCenter2GlobalTrajectoryCallback(const base::Time& ts)
     
     //needed for heading transformation
     if(!gotBodyCenter2Map)
+    {
+        if(state() != TRANSFORMATION_MISSING)
+            state(TRANSFORMATION_MISSING);
+        
+        std::cout << "Warning, no transformation to map known" << std::endl;
         return;
-    
-    hasHeading_map = getDriveDirection(heading_map);
+    }
+
+    map2GlobalTrajectorie = bodyCenter2GlobalTrajectorie * bodyCenter2Map.inverse();
+    gotMap2GlobalTrajectorie = true;
 }
 
 
 bool ServoingTask::getDriveDirection(base::Angle &result)
 {
-    base::Pose curPose(bodyCenter2GlobalTrajectorie);
+    if(!gotBodyCenter2Map || !gotMap2GlobalTrajectorie)
+    {
+        return false;
+    }
+        
+    //compute latest position over map frame
+    base::Pose curBodyCenter2GlobalTrajectorie(map2GlobalTrajectorie * bodyCenter2Map);
     
     Eigen::Vector3d targetPoint;
     TrajectoryTargetCalculator::TARGET_CALCULATOR_STATUS status = 
-            trTargetCalculator.traverseTrajectory(targetPoint, base::Pose(bodyCenter2GlobalTrajectorie));
+            trTargetCalculator.traverseTrajectory(targetPoint, base::Pose(curBodyCenter2GlobalTrajectorie));
                 
     switch(status)
     {
@@ -144,7 +174,7 @@ bool ServoingTask::getDriveDirection(base::Angle &result)
     //but we need a target direction, so we calculate it now from the goal pos of the tr follower
     
     //convert goal point into map coordinates
-    Eigen::Affine3d globalTrajectory2Map(bodyCenter2Map * bodyCenter2GlobalTrajectorie.inverse());
+    Eigen::Affine3d globalTrajectory2Map(bodyCenter2Map * curBodyCenter2GlobalTrajectorie.toTransform().inverse());
     
     Vector3d goal_map = globalTrajectory2Map * targetPoint;
     Vector3d vecToGoal_map = goal_map - bodyCenter2Map.translation();
@@ -172,11 +202,6 @@ void ServoingTask::consistencyCallback(size_t x, size_t y, double& sum, int& cnt
 
 bool ServoingTask::isMapConsistent()
 {
-    if(!hasHeading_map)
-    {
-        return false;
-    }
-    
     Affine3d grid2Map = (trGrid->getFrameNode()->relativeTransform(trGrid->getEnvironment()->getRootNode()));
     Affine3d bodyCenter2Grid(grid2Map.inverse() * bodyCenter2Map);
 
@@ -203,24 +228,12 @@ bool ServoingTask::isMapConsistent()
 
 bool ServoingTask::doPathPlanning()
 {
-     //wait for the sweep to finish before we do a replan
-    if(!sweepTracker.areSweepsDone())
-    {
-        RTT::log(RTT::Info) << "Waiting for sweep to finish" << RTT::endlog();
-        return false;
-    }   
-    
     RTT::log(RTT::Info) << "Trying to plan" << RTT::endlog();
 
     RTT::log(RTT::Info) << "" << RTT::endlog(); 
     base::Time start = base::Time::now();
 
     std::vector<base::Trajectory> plannedTrajectory;
-    
-    if(!hasHeading_map)
-    {
-        return false;
-    }
     
     std::cout << "Doing it, I am planning !" << std::endl;
     Eigen::Affine3d map2Trajectory(bodyCenter2Trajectory * bodyCenter2Map.inverse());
@@ -310,6 +323,9 @@ bool ServoingTask::getMap()
         
         vfhServoing.setNewTraversabilityGrid(trGrid);
         
+        if(!gotNewMap)
+            std::cout << "ServoingTask::Got initial Map" << std::endl;
+        
         gotNewMap = true;
     }
     
@@ -321,8 +337,6 @@ bool ServoingTask::getGlobalTrajectory()
     RTT::FlowStatus trStatus = _global_trajectory.readNewest(trajectories, false);
     if(trStatus == RTT::NewData)
     {
-        //wait until next position reading comes in
-        hasHeading_map = false;
         if(trajectories.empty())
         {
             if(state() != INPUT_TRAJECTORY_EMPTY)
@@ -382,6 +396,14 @@ void ServoingTask::updateHook()
         RTT::log(RTT::Debug) << "Trajectory port not connected, not planning " << RTT::endlog();
         return;
     }
+
+    //check if we can compute the heading to the 
+    //trajectorie. This might not be possible, if 
+    //we are missing some transformations
+    //Note, this also stops the robot if we reached
+    //the end of the trajectorie
+    if(!getDriveDirection(heading_map))
+        return;
     
     //check if we actually want to replan
     //TODO add only plan every X cm

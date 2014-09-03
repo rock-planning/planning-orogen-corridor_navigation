@@ -98,8 +98,13 @@ namespace corridor_navigation {
         ///Last transformation from body to global trajectorie coorinate frame
         Eigen::Affine3d bodyCenter2GlobalTrajectorie;
 
+        ///Last known transformation from map to global trajectorie coorinate frame
+        Eigen::Affine3d map2GlobalTrajectorie;
+
+        
         bool gotBodyCenter2Trajectory;
         bool gotBodyCenter2GlobalTrajectory;
+        bool gotMap2GlobalTrajectorie;
         bool gotBodyCenter2Map;
         
 	bool gotNewMap;
@@ -130,7 +135,6 @@ namespace corridor_navigation {
         trajectory_follower::TrajectoryTargetCalculator trTargetCalculator;
 	base::Time lastSuccessfullPlanning;
 	        
-        bool hasHeading_map;
         base::Angle heading_map;
         
         bool getDriveDirection(base::Angle& result);
