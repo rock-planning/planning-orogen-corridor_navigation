@@ -4,8 +4,8 @@
 #include <vfh_star/VFH.h>
 #include <vfh_star/TreeSearch.h>
 #include <base/float.h>
-#include <base/m_types/Pose.hpp>
-#include <base/wrappers/Eigen.hpp>
+#include <base/Pose.hpp>
+#include <base/Eigen.hpp>
 #include <vector>
 #include <corridor_planner/corridors.hh>
 
