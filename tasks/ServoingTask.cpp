@@ -45,6 +45,7 @@ bool ServoingTask::configureHook()
     trTargetCalculator.setForwardLength(_search_horizon.get());
     trTargetCalculator.removeTrajectory();
 
+    trTargetCalculator.setEndReachedDistance(_goalReachedTolerance.get());
     //aktivate output of debug tree
     vfhServoing.activateDebug();
     
