@@ -271,6 +271,7 @@ bool ServoingTask::doPathPlanning()
         case VFHServoing::TRAJECTORY_THROUGH_UNKNOWN:
             noTrCounter = 0;
             unknownTrCounter++;
+	    std::cout << "Trajectory through Unknown " << unknownTrCounter << std::endl;
             sweepTracker.triggerSweepTracking();
             if(unknownTrCounter > unknownRetryCount)
             {
@@ -282,6 +283,7 @@ bool ServoingTask::doPathPlanning()
         case VFHServoing::NO_SOLUTION:
             unknownTrCounter = 0;
             noTrCounter++;
+	    std::cout << "No solution found " << noTrCounter << std::endl;
             sweepTracker.triggerSweepTracking();
             if(noTrCounter > failCount) {
                 RTT::log(RTT::Error) << "Quitting, found no solution" << RTT::endlog();
