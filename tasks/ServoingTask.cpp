@@ -382,6 +382,8 @@ void ServoingTask::updateHook()
     
     if(!gotBodyCenter2Map || !gotBodyCenter2Trajectory || !gotBodyCenter2GlobalTrajectory)
     {
+        if(state() != TRANSFORMATION_MISSING)
+            state(TRANSFORMATION_MISSING);
         RTT::log(RTT::Debug) << "Waiting for needed transformations" << RTT::endlog();
         return;        
     }
