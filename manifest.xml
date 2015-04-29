@@ -15,7 +15,6 @@
 
   <depend package="planning/vfh_star"/>
   <depend package="planning/corridor_navigation"/>
-  <depend package="planning/orogen/corridor_planner"/>
 
   <depend package="control/trajectory_follower"/>
   <depend package="slam/envire"/>

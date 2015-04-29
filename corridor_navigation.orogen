@@ -5,15 +5,11 @@ using_library "vfh_star"
 using_library "trajectory_follower"
 using_library 'corridor_navigation'
 import_types_from "base"
-import_types_from "corridor_planner"
 import_types_from "envire"
 import_types_from "tilt_scan"
 
-
 import_types_from "vfh_star/Types.h"
-import_types_from "corridor_navigation/VFHFollowingConf.hpp"
 import_types_from "corridor_navigation/VFHServoingConf.hpp"
-import_types_from "corridorNavigationTypes.hpp"
 
 
 task_context "ServoingTask" do
@@ -98,33 +94,6 @@ task_context "ServoingTask" do
     worstcase_processing_time 0.3	
 end
 
-task_context "FollowingTask" do
-    doc "This task makes the robot cross a given corridor structure, from its beginning to its end"
-
-    property('search_conf',  'vfh_star::TreeSearchConf')
-    property('cost_conf',    'corridor_navigation::VFHFollowingConf')
-    property('search_horizon', 'double').
-        doc 'the search horizon, in meters'
-
-    input_port('problem', '/corridor_navigation/CorridorFollowingProblem').
-        doc 'the corridor following problem'
-
-    input_port('pose_samples', '/base/samples/RigidBodyState').
-        doc 'the current robot pose'
-
-    output_port('trajectory', 'std::vector</base/Trajectory>').
-        doc 'the generated trajectory'
-
-    output_port('debugVfhTree', '/vfh_star/DebugTree').
-        doc 'the resulting internal search tree'
-
-    output_port('debug', '/corridor_navigation/FollowingDebug').
-        doc 'the resulting state of the planner'
-
-    exception_states :DEAD_END, :NO_VIABLE_PATH
-    port_driven 'pose_samples'
-end
-
 task_context "PoseAlignmentTask" do
     input_port('target_pose', '/base/Pose').
         doc 'the target pose after final alignment'
@@ -151,28 +120,5 @@ task_context "PoseAlignmentTask" do
     exception_states :TOO_FAR_FROM_TARGET
 
     periodic 0.1
-end
-
-task_context "TestTask" do
-    property('test_conf', 'corridor_navigation::TestConf')
-    property('search_conf',  'vfh_star::TreeSearchConf')
-    property('cost_conf',    'vfh_star::VFHStarConf')
-    property('initial_pose', 'base/Pose')
-    property('search_horizon', 'double', 2.0).
-        doc 'the search horizon, in meters'
-
-    output_port('trajectory', '/base/geometry/Spline<3>')
-    output_port('search_tree', '/vfh_star/DebugTree')
-end
-
-deployment "corridorNavigationTest" do
-    task('corridor_servoing', "corridor_navigation::ServoingTask").
-	triggered
-    task('corridor_following', "corridor_navigation::FollowingTask").
-	triggered
-    task('vfh_search_test', "corridor_navigation::TestTask").
-	triggered
-
-    add_default_logger
 end
 
