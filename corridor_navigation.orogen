@@ -98,7 +98,7 @@ task_context "PoseAlignmentTask" do
     input_port('target_pose', '/base/Pose').
         doc 'the target pose after final alignment'
 
-    output_port('motion_commands', '/base/MotionCommand2D')
+    output_port('motion_commands', '/base/commands/Motion2D')
         doc 'motion commands to perform the alignment'
 
     transformer do
